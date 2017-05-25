@@ -41,20 +41,14 @@ class Controller(object):
         self.Yaw = 0
         self.Pitch = 0
         self.Location = (0,0,0)
-        self.observations = None
 
-    def update(self):
+    def update(self, observations):
         """get world state, read out relevant observations"""
-        world_state = self.agent.getWorldState()
-        for error in world_state.errors:
-            print "Error:",error.text
-        if len(world_state.observations) > 0:
-            msg = world_state.observations[-1].text
-            self.observations = json.loads(msg)
-            self.Yaw = self.observations.get(u'Yaw', 0)
-            self.Pitch = self.observations.get(u'Pitch', 0)
-            self.Location = (self.observations.get(u'XPos', 0), \
-            self.observations.get(u'YPos', 0), self.observations.get(u'ZPos', 0))
+        if observations is not None:
+            self.Yaw = observations.get(u'Yaw', 0)
+            self.Pitch = observations.get(u'Pitch', 0)
+            self.Location = (observations.get(u'XPos', 0), \
+                observations.get(u'YPos', 0), observations.get(u'ZPos', 0))
 
     def selectHotbar(self, hotbar):
         """select a given hotbar"""
