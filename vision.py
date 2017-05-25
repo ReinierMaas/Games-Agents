@@ -22,9 +22,10 @@ FOV = 70				# Default Field of View for Minecraft
 
 TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 	"torch", "ladder", "fence", "iron_bars", "glass_pane", "vines", "lily_pad",
-	"sign", "item_frame", "flower_pot", "skull", "armor_stand", "banner",
+	"sign", "item_frame", "flower_pot", "skull", "armor_stand", "banner", "tall_grass",
 	"lever", "pressure_plate", "redstone_torch", "button", "trapdoor", "tripwire",
 	"tripwire_hook", "redstone", "rail", "beacon", "cauldron", "brewing_stand"]
+
 
 class VisionHandler(object):
 	"""
@@ -38,8 +39,6 @@ class VisionHandler(object):
 		# Since real cube size is for both directions, we also do +1 for player
 		self.realSize = size * 2 + 1
 		self.numElements = self.realSize**3
-		self.matrix = np.zeros((self.realSize, self.realSize, self.realSize),
-			dtype="|S25")	# 25 characters should be enough for block names...
 		self.center = size
 
 
@@ -67,26 +66,14 @@ class VisionHandler(object):
 		filterOccluded() afterwards!
 		"""
 
-		cube = [
-		u'grass', u'grass', u'grass',		# x = -1 to 1, y = -1, z = -1
-		u'dirt',  u'grass', u'grass',		# x = -1 to 1, y = -1, z = 0
-		u'grass', u'grass', u'grass',		# x = -1 to 1, y = -1, z = 1
-
-		u'air', u'air', u'air',				# x = -1 to 1, y = 0, z = -1
-		u'log', u'air', u'air',				# x = -1 to 1, y = 0, z = 0	 (middle = center)
-		u'air', u'air', u'air',				# x = -1 to 1, y = 0, z = 1
-
-		u'air', u'air', u'air',				# x = -1 to 1, y = 1, z = -1
-		u'log', u'air', u'air',				# x = -1 to 1, y = 1, z = 0
-		u'air', u'air', u'air']				# x = -1 to 1, y = 1, z = 1
-
 		# Sanity check, just in case
 		if len(cubeObservation) != self.numElements:
 			raise ValueError("cube observation uses different cube size!")
 
 		# Directly copy over the list to a numpy matrix, reset the shape, and
 		# swap the y and z axes (previous index / Malmo uses x, z, y)
-		temp = np.array(cubeObservation)
+		# 25 characters should be enough for block names...
+		temp = np.array(cubeObservation, dtype="|S25")
 		temp = np.reshape(temp, (self.realSize, self.realSize, self.realSize))
 		self.matrix = np.swapaxes(temp, 1, 2)
 
@@ -112,7 +99,6 @@ class VisionHandler(object):
 		def setInvisible(relX, relY, relZ):
 			""" Sets the block at relative x, y, z coordinates to empty string. """
 			visible[self.center + relX, self.center + relY, self.center + relZ] = False
-			self.matrix[self.center + relX, self.center + relY, self.center + relZ] = ""
 
 
 		# The blocks where the player is standing is always visible of course...
@@ -129,63 +115,89 @@ class VisionHandler(object):
 		# potentially visible since its neighbors will be marked visible later
 		# on. We can either fix this by doing multiple passes (easy), or by
 		# changing the loops to work in an actual, outwards spiral (harder)...
-		# TODO: Fix edge cases
-		for x in range(0, self.size + 1) + range(0, -self.size - 1, -1):
-			for y in range(0, self.size + 1) + range(0, -self.size - 1, -1):
-				for z in range(0, self.size + 1) + range(0, -self.size - 1, -1):
+		# Future TODO: Improve upon multiple passes method with something smarter
+		iterations = 0
 
-					# If this block is already visible, skip it
-					if isVisible(x, y, z):
-						continue
+		while True:
+			changedSomething = False
 
-					# Check 6 surrounding blocks if they're visible. Blocks that
-					# are out of bounds will be empty strings, which is fine.
-					if x + 1 < self.size and isVisible(x + 1, y, z) and \
-					self.getBlockAtRelPos(x + 1, y, z) in TRANSPARANT_BLOCKS:
+			for x in range(0, self.size + 1) + range(-1, -self.size - 1, -1):
+				for y in range(0, self.size + 1) + range(-1, -self.size - 1, -1):
+					for z in range(0, self.size + 1) + range(-1, -self.size - 1, -1):
 
-						setVisible(x, y, z)
-						continue
+						# If this block is already visible, skip it
+						if isVisible(x, y, z):
+							continue
 
-					if x - 1 > -self.size and isVisible(x - 1, y, z) and \
-					self.getBlockAtRelPos(x - 1, y, z) in TRANSPARANT_BLOCKS:
+						# Check 6 surrounding blocks if they're visible.
+						if x + 1 < self.size and isVisible(x + 1, y, z) and \
+						self.getBlockAtRelPos(x + 1, y, z) in TRANSPARANT_BLOCKS:
 
-						setVisible(x, y, z)
-						continue
+							setVisible(x, y, z)
+							changedSomething = True
+							continue
 
+						if x - 1 > -self.size and isVisible(x - 1, y, z) and \
+						self.getBlockAtRelPos(x - 1, y, z) in TRANSPARANT_BLOCKS:
 
-					if y + 1 < self.size and isVisible(x, y + 1, z) and \
-					self.getBlockAtRelPos(x, y + 1, z) in TRANSPARANT_BLOCKS:
-
-						setVisible(x, y, z)
-						continue
-
-					if y - 1 > -self.size and isVisible(x, y - 1, z) and \
-					self.getBlockAtRelPos(x, y - 1, z) in TRANSPARANT_BLOCKS:
-
-						setVisible(x, y, z)
-						continue
+							setVisible(x, y, z)
+							changedSomething = True
+							continue
 
 
-					if z + 1 < self.size and isVisible(x, y, z + 1) and \
-					self.getBlockAtRelPos(x, y, z + 1) in TRANSPARANT_BLOCKS:
+						if y + 1 < self.size and isVisible(x, y + 1, z) and \
+						self.getBlockAtRelPos(x, y + 1, z) in TRANSPARANT_BLOCKS:
 
-						setVisible(x, y, z)
-						continue
+							setVisible(x, y, z)
+							changedSomething = True
+							continue
 
-					if z - 1 > -self.size and isVisible(x, y, z - 1) and \
-					self.getBlockAtRelPos(x, y, z - 1) in TRANSPARANT_BLOCKS:
+						if y - 1 > -self.size and isVisible(x, y - 1, z) and \
+						self.getBlockAtRelPos(x, y - 1, z) in TRANSPARANT_BLOCKS:
 
-						setVisible(x, y, z)
-						continue
+							setVisible(x, y, z)
+							changedSomething = True
+							continue
 
-					# This block is likely not visible!
-					# print "block x = {}, y = {}, z = {} is not visible!".format(x, y, z)
-					setInvisible(x, y, z)
+
+						if z + 1 < self.size and isVisible(x, y, z + 1) and \
+						self.getBlockAtRelPos(x, y, z + 1) in TRANSPARANT_BLOCKS:
+
+							setVisible(x, y, z)
+							changedSomething = True
+							continue
+
+						if z - 1 > -self.size and isVisible(x, y, z - 1) and \
+						self.getBlockAtRelPos(x, y, z - 1) in TRANSPARANT_BLOCKS:
+
+							setVisible(x, y, z)
+							changedSomething = True
+							continue
+
+						# This block is likely not visible!
+						# print "block x = {}, y = {}, z = {} is not visible!".format(x, y, z)
+						setInvisible(x, y, z)
+
+			iterations += 1
+			# print "iteration: {}".format(iterations)
+			# print "visible = {}".format(visible)
+
+			if not changedSomething:
+				# print "Stopping after {} iterations since nothing changed!".format(iterations)
+				break
 
 		# Now we filter out all the blocks are not visible because of our view
 		# TODO: Finish this... Keep pitch, yaw, and horizontal and vertical FOV in mind...
 		# Pitch = vertical angle
 		# Yaw = horizontal angle
+
+		# Now we apply the visibility to the actual matrix
+		for x in range(-self.size, self.size + 1):
+			for y in range(-self.size, self.size + 1):
+				for z in range(-self.size, self.size + 1):
+					if not isVisible(x, y, z):
+						self.matrix[self.center + x, self.center + y, self.center + z] = ""
+
 
 
 def getMissionXML():
@@ -320,6 +332,7 @@ if __name__ == "__main__":
 
 	# For later on
 	steppedLeft = False
+	movedFinal = False
 
 	while worldState.is_mission_running:
 		if worldState.number_of_observations_since_last_state > 0:
@@ -327,12 +340,16 @@ if __name__ == "__main__":
 			observations = json.loads(msg)
 
 			# print("msg = {}".format(msg))
+			startTime = time.time()
 
 			obsHandler.updateFromObservation(observations[CUBE_OBS])
 			# print "cube = {}".format(observations[CUBE_OBS])
-			print "matrix1 = {}".format(obsHandler.matrix)
+			# print "matrix1 = {}".format(obsHandler.matrix)
 			obsHandler.filterOccluded(None, None)
-			print "matrix2 = {}".format(obsHandler.matrix)
+			print "\"visible\" matrix = {}".format(obsHandler.matrix)
+
+			duration = time.time() - startTime
+			print "Handling vision took {} ms!".format(duration)
 
 			# print "dirt block: {}".format(obsHandler.getBlockAtRelPos(-1, -1, 0))
 
@@ -341,7 +358,7 @@ if __name__ == "__main__":
 
 			# Ugh, floating point comparisons...
 			if x == -3.5 and int(y) == 7 and z == 0.5:
-				print "Reached pos! x = {}, y = {}, z = {}".format(x, y, z)
+				print "Reached pos! x = {}, y = {}, z = {}\n\n\n".format(x, y, z)
 				# Make 1 step to the left for science if we havent done already
 				if not steppedLeft:
 					agentHost.sendCommand("strafe -1")
@@ -350,6 +367,10 @@ if __name__ == "__main__":
 
 			if not steppedLeft:
 				agentHost.sendCommand("move 1")
+			else:
+				if not movedFinal:
+					agentHost.sendCommand("move 1")
+					movedFinal = True
 
 		for error in worldState.errors:
 			print "Error:", error.text
