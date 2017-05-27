@@ -64,6 +64,7 @@ class WaypointNode(object):
 
 
 def euclidianDistance(wp1, wp2):
+    """returns the euclidian distance between 2 waypoints"""
     (x1,y1,z1) = wp1.location
     (x2,y2,z2) = wp2.location
     (dx, dy, dz) = (x2 - x1, y2 - y1, z2 - z1)
@@ -71,6 +72,7 @@ def euclidianDistance(wp1, wp2):
 
 
 def reconstruct(current, cameFrom):
+    """reconstruct a path using the cameFrom dictionary and the last node in the route"""
     r = [current]
     while True:
         current = cameFrom.get(current)
@@ -82,6 +84,10 @@ def reconstruct(current, cameFrom):
     return r
 
 def Astar(wpStart, wpEnd, heuristic):
+    """perform the A* algorithm, to find a route from wpStart to wpEnd using a given heuristic"""
+    """wpStart, wpEnd : WaypointNode, heuristic: (WaypointNode, WaypointNode) -> float"""
+    """returns a list of waypoints, or None if no route was found"""
+    #initialize
     closedSet = set()
     openSet = set([wpStart])
     cameFrom = {}
@@ -89,35 +95,53 @@ def Astar(wpStart, wpEnd, heuristic):
     gScore[wpStart] = 0
     fScore = {}
     fScore[wpStart] = heuristic(wpStart, wpEnd)
+    #as long there are items in the open set
     while openSet:
+        #select current node based on minimum f score
         current = min(openSet, key = lambda item: fScore.get(item, float("inf")))
+        #if we reached the goal, reconstruct
         if current == wpEnd:
             return reconstruct(current, cameFrom)
 
+        #move current node from open to closed set
         openSet.remove(current)
         closedSet.add(current)
+
+        #discover new nodes
         for neighbor in current.nodes:
             if neighbor in closedSet:
                 continue
+
+            #evaluate g score of this neighbor
             gScore_t = gScore.get(current, float("inf")) + euclidianDistance(current, neighbor)
+
+            #add the neighbor to the open set if it's not already in there,
+            #if it's not, and it has a lower gScore, we don't have the
+            #fastest route to this neighbor, so skip
             if neighbor not in openSet:
                 openSet.add(neighbor)
             elif gScore_t >= gScore[neighbor]:
                 continue
+
+            #we found a (new fastest) way to the neighbor
             cameFrom[neighbor] = current
             gScore[neighbor] = gScore_t
             fScore[neighbor] = gScore_t + heuristic(neighbor, wpEnd)
 
+    #we didn't find a route to wpEnd
     return None
 
 def findRoute(startWp, endWp):
+    """Find the route from the start waypoint to the end waypoint"""
     return Astar(startWp, endWp, euclidianDistance)
 
 def findRoutesByKey(startWp, key):
+    """Find the shortest routes from the start waypoint to all waypoints that contain a given key"""
     nodes = startWp.findNodes(key)
     return map(lambda node: Astar(startWp, node, euclidianDistance), nodes)
 
 def findRouteByKey(startWp, key):
+    """Find the shortest overall route from the start waypoint to a waypoint that contains given key"""
     routes = findRoutesByKey(startWp, key)
     route = min(routes, key= lambda route:  len(route))
     return route
