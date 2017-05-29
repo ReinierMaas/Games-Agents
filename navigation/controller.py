@@ -41,6 +41,7 @@ class Controller(object):
         self.Yaw = 0
         self.Pitch = 0
         self.Location = (0,0,0)
+        self.cam_move_threshold = 2
 
     def update(self, observations):
         """get world state, read out relevant observations"""
@@ -56,40 +57,38 @@ class Controller(object):
         self.agent.sendCommand("hotbar.%i 0" % hotbar)
         currentHotbar = hotbar
 
+
     def pitch(self, angle):
         """pitch by a given angle (approx)"""
-        self.agent.sendCommand("pitch %f" % (float(angle) * lookV_speed))
-        time.sleep(1/cam_speed)
-        self.agent.sendCommand("pitch 0")
+        self.setPitch(self.Pitch + angle)
 
 
     def turn(self, angle):
         """pitch by a given angle (approx)"""
-        self.agent.sendCommand("turn %f" % (float(angle) * turn_speed))
-        time.sleep(1/cam_speed)
-        self.agent.sendCommand("turn 0")
+        self.setYaw(self.Yaw + angle)
 
-    def lookH(self, newYaw):
-        """look at a given yaw value (approx)"""
-        diff = shortAngle(newYaw, self.Yaw)
-        print "lookH", diff
-        self.turn(diff)
+    def setYaw(self, newYaw):
+        """look at a given yaw value"""
+        if self.Yaw == newYaw:
+            return
+        print "set new yaw:", newYaw
+        self.agent.sendCommand("setYaw %f" % newYaw)
 
-    def lookV(self, newPitch):
-        """look at a given pitch value (approx)"""
-        diff = shortAngle(newPitch, self.Pitch)
-        print "lookV", diff
-        self.pitch(diff)
+    def setPitch(self, newPitch):
+        """look at a given pitch value"""
+        if self.Pitch == newPitch:
+            return
+        print "set new pitch:", newYaw
+        self.agent.sendCommand("setPitch %f" % newPitch)
 
-    def lookAtH(self, x, z):
+    def lookAtHorizontally(self, x, z):
         """face a given location (requires observing current position of the agent)"""
         (cx,_,cz) = self.Location
         (dx,dz) = (cx - x, cz - z)
         yw = degrees(atan2(dz, dx)) + 90
-        self.lookH(yw)
+        self.setYaw(yw)
 
-    def lookAtH2(self, tup):
+    def lookAtHorizontally2(self, tup):
         """face a given location in 3D vector tuple form"""
         (x,_,z) = tup
-        self.lookAtH(x,z)
-
+        self.lookAtHorizontally(x,z)

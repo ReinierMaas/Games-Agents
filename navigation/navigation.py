@@ -7,10 +7,15 @@ from controller import *
 from math import *
 
 
+next_wid = 0
+
 #data are key-value pairs, we can seach nodes for keys to exist, and store info at
 #certain keys as well
 class WaypointNode(object):
     def __init__(self, location, radius, data = None):
+        global next_wid
+        self.WID = next_wid
+        next_wid += 1
         self.location = location
         self.radius = radius
         self.data = data
@@ -19,13 +24,14 @@ class WaypointNode(object):
         self.nodes = []
 
     def contains(self, point):
-        x, y, z = location
+        x, y, z = self.location
         xp, yp, zp = point
         dx, dy, dz = x - xp, y - xp, z - zp
         return dx**2 + dy**2 + dz**2 <= self.radius**2
 
     def getAllNodes(self):
         """get all nodes in the graph this waypoint is part of"""
+        """return : set(WaypointNode)"""
         discovered = set([self])
         discovered |= set(self.nodes)
         size = len(discovered)
@@ -44,12 +50,17 @@ class WaypointNode(object):
         for n in neighbors:
             self.assignNeighbor(n)
 
-    def assignNeighbor(self, neighbor):
+    def assignNeighbor(self, neighbor, doPrint = False):
         """assign a neigbor to this waypoint graph"""
+        if neighbor is None or self == neighbor:
+            return
         if neighbor not in self.nodes:
             self.nodes.append(neighbor)
         if self not in neighbor.nodes:
             neighbor.nodes.append(self)
+
+        if doPrint:
+            print "added new connection %i - %i" % (self.WID, neighbor.WID)
 
     def detach(self):
         """remove this waypoint from the graph"""
@@ -159,38 +170,57 @@ class Navigator(object):
 
     def setRoute(self, route):
         self.route = route
-        self.target = self.route.pop(0)
+        if len(self.route) == 0:
+            self.target = None
+            self.targetReached = True
+        else:
+            self.target = self.route.pop(0)
+            self.targetReached = False
+
+    def placeWaypoint(self, radius = 3):
+        wp = WaypointNode(self.controller.Location, radius)
+        wp.assignNeighbor(self.lastWaypoint)
+        self.lastWaypoint = wp
+        print "Placed new waypoint at ", wp.location, " with radius ", wp.radius
 
     def update(self):
         if not self.enabled:
             return
         if self.exploring:
+            if self.lastWaypoint is None:
+                self.placeWaypoint()
+                return
             #in exploring mode, drop waypoints where you go
-            if distanceH(self.lastWaypoint.location, self.controller.Location) >= 8.5:
+            if distanceH(self.lastWaypoint.location, self.controller.Location) >= self.lastWaypoint.radius * 4:
                 allNodes = self.lastWaypoint.getAllNodes()
                 newNode = True
                 for node in allNodes:
+                    if node == self.lastWaypoint:
+                        continue
                     if node.contains(self.controller.Location):
                         self.lastWaypoint.assignNeighbor(node)
                         self.lastWaypoint = node
                         newNode = False
                         break #warning: can't handle overlapping nodes
                 if newNode:
-                    wp = WaypointNode(self.controller.Location, 2)
-                    self.lastWaypoint = wp
-                    wp.assignNeighbor(self.lastWaypoint)
+                    self.placeWaypoint()
+            allNodes = self.lastWaypoint.getAllNodes()
+            for node in allNodes:
+                if distanceH(node.location, self.controller.Location) <= node.radius:
+                    self.lastWaypoint.assignNeighbor(node)
 
-        else:
+        elif self.target is not None:
             if distanceH(self.controller.Location, self.target.location) < self.target.radius:
-                self.controller.agent.sendCommand("move 0")
-                if self.route is not []:
+                if len(self.route) > 0:
+                    print "next target"
                     self.target = self.route.pop(0)
                 else:
                     self.target = None
                     self.targetReached = True
+                    self.controller.agent.sendCommand("move 0")
 
             if self.target is not None:
-                (tx, ty, tz) = self.target.Location
-                self.controller.lookAtH(tx, tz)
+                (tx, ty, tz) = self.target.location
+                self.controller.lookAtHorizontally2(self.target.location)
                 self.controller.agent.sendCommand("move 1")
 
