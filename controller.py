@@ -82,6 +82,6 @@ class Controller(object):
 		ptch = degrees(atan2(dy, dh))
 		self.setPitch(ptch)
 
-	def lookAt(self, position)
+	def lookAt(self, position):
 		self.lookAtVertically(position)
 		self.lookAtHorizontally(position)
