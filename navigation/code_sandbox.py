@@ -24,6 +24,9 @@ import os
 import sys
 import time
 from controller import *
+from navigation import *
+from stateMachine import *
+import random
 
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)  # flush print output immediately
 
@@ -49,7 +52,8 @@ missionXML='''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
                 <AgentStart/>
                 <AgentHandlers>
                   <ObservationFromFullStats/>
-                  <ContinuousMovementCommands turnSpeedDegs="180"/>
+                  <AbsoluteMovementCommands/>
+                  <ContinuousMovementCommands />
                 </AgentHandlers>
               </AgentSection>
             </Mission>'''
@@ -97,23 +101,78 @@ print
 print "Mission running ",
 
 
-cmd = True
-ctime = 0
-controller = Controller(agent_host)
-i = 0
-il = [(20,210,20), (-20, 230, -20)]
-ilSelect = il[0]
+start_time = time.time()
+c_time = 0
+firstWaypoint = None
+ac = Controller(agent_host)
+ac.setYaw(0)
+nav = Navigator(ac)
+sm = StateMachine()
+
+sm.addState("explore")
+c_time_threshold_explore = 4
+def sm_explore_action():
+    global firstWaypoint
+    global c_time_threshold_explore
+    if firstWaypoint is None:
+        firstWaypoint = nav.lastWaypoint
+    agent_host.sendCommand("move 1")
+    if c_time > c_time_threshold_explore:
+        ac.turn(90)
+        c_time_threshold_explore += 4
+
+def sm_explore_event():
+    global nav
+    nav.exploring = True
+
+sm.addTransition("start", "explore", lambda: True, sm_explore_event)
+sm.actions["explore"] = sm_explore_action
+
+sm.addState("search")
+def sm_search_event():
+    global nav
+    global agent_host
+    nav.exploring = False
+    agent_host.sendCommand("move 0")
+    route = findRoute(nav.lastWaypoint, firstWaypoint)
+    print route
+    nav.setRoute(route)
+
+def sm_nav_condition():
+    global c_time
+    return c_time >= 20.0
+
+sm.addTransition("explore", "search", sm_nav_condition, sm_search_event)
+
+sm.addState("navigating")
+sm.addTransition("search", "navigating", lambda: not nav.exploring, lambda: True)
+
+def sm_nav2start_event():
+    print "target reached"
+    global start_time
+    start_time = time.time()
+
+sm.addTransition("navigating", "start", lambda: nav.targetReached, sm_nav2start_event)
+
+
+
+
 # Loop until mission ends:
 while world_state.is_mission_running:
-    sys.stdout.write(".")
     time.sleep(0.05)
-    controller.update()
-    if controller.observations is not None:
-        controller.lookAtH2(ilSelect)
-        agent_host.sendCommand("move 1")
-        if distanceH(controller.Location, ilSelect) < 5:
-            i = 1 - i
-            ilSelect = il[i]
+    c_time = time.time() - start_time
+
+    world_state = agent_host.getWorldState()
+    for error in world_state.errors:
+        print "Error:",error.text
+    if world_state.number_of_observations_since_last_state > 0: # Have any observations come in?
+        msg = world_state.observations[-1].text                 # Yes, so get the text
+        obs = json.loads(msg)
+        if obs is not None:
+            ac.update(obs) #update controller
+            nav.update() #update navigation
+            sm.update() #update state machine
+
 
 
 print
