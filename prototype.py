@@ -124,6 +124,33 @@ def buildGraph(navigator):
 			grid[x][z].assignNeighbor(grid[x + 1, z + 1])
 			grid[x][z].assignNeighbor(grid[x, z + 1])
 
+	grid[4][0].data["Tree"] = True
+	grid[0][0].data["Origin"] = True
+	navigator.lastWaypoint = grid[0][0]
+
+
+# --- State Machine --- #
+def onFindTree(navigator):
+	route = findRouteByKey(navigator.lastWaypoint, "Tree")
+	navigator.setRoute(route)
+
+def onCutTree():
+
+def onGoBack(navigator):
+	route = findRouteByKey(navigator.lastWaypoint, "Origin")
+	navigator.setRoute(route)
+
+
+def initMachine(stateMachine, navigator):
+	stateMachine.addState("findTree")
+	stateMachine.addState("cutTree")
+	stateMachine.addState("goBack")
+
+	stateMachine.addTransition("start", "findTree", lambda: True, lambda: onFindTree(navigator))
+	stateMachine.addTransition("findTree", "cutTree", lambda: True, lambda: onCutTree())
+	stateMachine.addTransition("cutTree", "goBack", lambda: True, lambda: onGoBack(navigator))
+
+# --- Main --- #
 
 if __name__ == "__main__":
 	sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)  # flush print output immediately
@@ -167,6 +194,7 @@ if __name__ == "__main__":
 	navigator = Navigator()
 	buildGraph(navigator)
 	stateMachine = StateMachine()
+	initMachine(stateMachine)
 
 	# Mission loop:
 	while worldState.is_mission_running:
