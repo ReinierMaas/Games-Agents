@@ -207,6 +207,7 @@ if __name__ == "__main__":
 					agentHost.sendCommand("move 0")
 				else:
 					# Keep moving forward until we reach it
+					agentHost.sendCommand("attack 0")
 					agentHost.sendCommand("move 1")
 
 
