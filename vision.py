@@ -327,6 +327,9 @@ class VisionHandler(object):
 
 		self.blocks = []
 
+	def addVisibleBlock(self, block):
+		self.blocks.append(block)
+
 
 	def _filterCoarse(self):
 		"""
@@ -438,11 +441,10 @@ class VisionHandler(object):
 
 		# Convert all currently visible blocks to blocks of triangles. Also, we
 		# do a simple angle test with blocks that are absolutely out of view
-		self._setupBlockList()
 		lookAt = getNormalizedVector(lookAt)
 
 		# TODO: Fix fov calculation into correct one that minecraft uses...
-		fov = radians(FOV) * 1.5
+		fov = radians(FOV)
 
 		# print "lookAt = {}, fov = {}\n".format(lookAt, fov)
 		print "coarse filtered matrix = \n{}".format(self.matrix)
@@ -470,7 +472,7 @@ class VisionHandler(object):
 
 							if angle >= -fov and angle <= fov:
 								cornerVisible = True
-								self.blocks.append(block)
+								self.addVisibleBlock(block)
 								# print "\tblock is visible!"
 								break
 
@@ -489,7 +491,6 @@ class VisionHandler(object):
 
 		# Now we can ray-trace all the blocks... First, we setup a 2D grid of
 		# rays that we will shoot from the players eyes...
-		lookAt = getNormalizedVector(lookAt)
 		numX = 160
 		numY = 90
 		distance = 0.1
@@ -516,7 +517,11 @@ class VisionHandler(object):
 		up = p2 - p0
 
 		# Make a copy of the visiblity matrix, since we need our own
-		visible = np.copy(self.visible)
+		visibleBackup = np.copy(self.visible)
+
+		# The visibility matrix is reset because we only mark the visible blocks
+		# as visible, and dont filter out visible blocks
+		self._setupVisibilityMatrix()
 
 		# Generate all the rays and trace them
 		for y in range(numY):
@@ -532,16 +537,19 @@ class VisionHandler(object):
 					up * ratioFov * vStep
 				ray = Ray(origin, getNormalizedVector(rayDirection))
 
-				# Trace new ray for intersection, test against all visible blocks
+				# Trace new ray for intersection, test against all visible blocks...
 				intersectedBlocks = []
+				intersectedBlockTypes = []
 				intersectionT = []
 
-				for block in blocks:
-					# Don't do early out, since we need the closest t for sort...
+				for block in self.blocks:
+					# Don't do early out, since we need the closest t for sorting...
 					t = block.intersect(ray, False)
 
 					if t is not None:
 						intersectedBlocks.append(block)
+						x, y, z = block.getX(), block.getY(), block.getZ()
+						intersectedBlockTypes.append(self.getBlockAtRelPos(x, y, z))
 						intersectionT.append(t)
 
 				# Check if this ray hit anything and update visibility
@@ -549,9 +557,24 @@ class VisionHandler(object):
 					# Now we need to order the intersected blocks based on their
 					# intersected t values, so we can clip non-visible blocks...
 					order = np.array(intersectionT).argsort()
-					tempBlock = intersectedBlocks[order[0]]
-					previousBlock = self.getBlockAtRelPos(tempBlock.getX(),
-						tempBlock.getY(), tempBlock.getZ())
+					orderedBlocks = np.array(intersectedBlocks)[order]
+					orderedTypes = np.array(intersectedBlockTypes)[order]
+
+					hitNonTransparantBlock = False
+
+					# We can only see transparant blocks until we hit the first
+					# non-transparant block, all the others are likely occluded
+					# for this pixel
+					for block, blockType in zip(orderedBlocks, orderedTypes):
+						x, y, z = block.getX(), block.getY(), block.getZ()
+
+						if blockType in TRANSPARANT_BLOCKS:
+							if not hitNonTransparantBlock:
+								self.setVisible(x, y, z)
+						else:
+							if not hitNonTransparantBlock:
+								hitNonTransparantBlock = True
+								self.setVisible(x, y, z)
 
 		self._fixDefaultVisibility()
 
@@ -562,18 +585,22 @@ class VisionHandler(object):
 		# First we setup the visibility matrix, and do coarse filtering
 		self._setupVisibilityMatrix()
 		self._filterCoarse()
-		oldVisible = np.copy(self.visible)
 		self.applyVisibility()
 
 		# Then we do more advanced filtering based on the FOV of the player
-		self._filterFOV(lookAt)
-		difference = (oldVisible != self.visible)
-		print "filterFOV changed something = {}".format(difference.any())
-		self.applyVisibility()
+		self._setupBlockList()	# Used for _filterFOV and _filterRayTraced
+		# oldVisible = np.copy(self.visible)
+		# self._filterFOV(lookAt)
+		# difference = (oldVisible != self.visible)
+		# print "filterFOV changed something = {}".format(difference.any())
+		# self.applyVisibility()
 
 		# Finally, we can do ray-tracing to determine occluded blocks...
-		# TODO: Finish that function
+		# oldVisible = np.copy(self.visible)
 		# self._filterRayTraced(lookAt, playerIsCrouching)
+		# difference = (oldVisible != self.visible)
+		# print "filterRayTraced changed something = {}".format(difference.any())
+		# self.applyVisibility()
 
 		print self.matrix
 
@@ -742,13 +769,14 @@ if __name__ == "__main__":
 			# TODO: Figure out how to know if the player is crouching or not...
 			playerIsCrouching = False
 
-			# Get the vector pointing from the eyes to the thing we're looking at
+			# We need the eye position for filtering and to determine lookAt vector
 			x, y, z = observations["XPos"], observations["YPos"], observations["ZPos"]
 			y += PLAYER_EYES_CROUCHING if playerIsCrouching else PLAYER_EYES
+			playerEyes = np.array([x, y, z])
 
+			# Get the vector pointing from the eyes to the thing/block we're looking at
 			lineOfSight = observations["LineOfSight"]
 			block = np.array([lineOfSight["x"], lineOfSight["y"], lineOfSight["z"]])
-			playerEyes = np.array([x, y, z])
 			temp = block - playerEyes
 			lookAt = getNormalizedVector(temp)
 			print "player eyes = {}, block = {}, temp = {}, final lookAt = {}".format(
