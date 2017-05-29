@@ -8,7 +8,7 @@ import time
 import json
 import copy
 import errno
-from math import ceil, radians, degrees, acos
+from math import ceil, radians, degrees, acos, tan, sqrt, fsum
 import xml.etree.ElementTree
 import numpy as np
 
@@ -28,13 +28,18 @@ TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 	"tripwire_hook", "redstone", "rail", "beacon", "cauldron", "brewing_stand"]
 
 
+def getVectorLength(vector):
+	""" Returns the length of the vector. """
+
+	# fsum is more accurate and uses Kahan summation along with IEEE-754 fp stuff
+	return sqrt(fsum([element * element for element in vector]))
 
 def getNormalizedVector(vector):
 	""" Returns the normalized vector. """
-	norm = np.linalg.norm(vector)
+	length = getVectorLength(vector)
 
-	if norm != 0:
-		return vector / (norm * 1.0)	# Ensure floating point division...
+	if length != 0.0:
+		return vector / length
 	else:
 		return vector
 
@@ -140,57 +145,47 @@ class Block(object):
 		self.y = relY
 		self.z = relZ
 
-		# Get closest and furthest face orthogonal to x direction
+		# Get all corners of this block, labeled clockwise...
+		self.corners = [
+			np.array([relX + 1, relY + 1, relZ], dtype=float),	# "Top" corners
+			np.array([relX + 1, relY + 1, relZ + 1], dtype=float),
+			np.array([relX, relY + 1, relZ + 1],dtype=float),
+			np.array([relX, relY + 1, relZ], dtype=float),
+
+			np.array([relX + 1, relY, relZ], dtype=float),		# "Bottom" corners
+			np.array([relX + 1, relY, relZ + 1], dtype=float),
+			np.array([relX, relY, relZ + 1], dtype=float),
+			np.array([relX, relY, relZ], dtype=float),
+		]
+
+		# TODO: Double check normals/vertices again... (seem ok now...) (check again)
+		# Get closest and furthest face orthogonal to x direction in z, y plane
 		normalX1 = getNormalizedVector(np.array([-relX, relY, relZ]))
 		normalX2 = getNormalizedVector(np.array([relX, relY, relZ]))
-		verticesX1 = [np.array([relX, relY + 1, relZ + 1]),
-			np.array([relX, relY, relZ + 1]),
-			np.array([relX, relY, relZ]),
-			np.array([relX, relY + 1, relZ])]
-		verticesX2 = [np.array([relX, relY + 1, relZ + 1]),
-			np.array([relX, relY, relZ + 1]),
-			np.array([relX, relY, relZ]),
-			np.array([relX, relY + 1, relZ])]
 
 		# Create 4 triangles for those 2 faces
-		faceX11 = Triangle(normalX1, [verticesX1[0], verticesX1[1], verticesX2[3]])
-		faceX12 = Triangle(normalX1, [verticesX1[1], verticesX1[2], verticesX2[3]])
-		faceX21 = Triangle(normalX2, [verticesX1[0], verticesX1[1], verticesX2[3]])
-		faceX22 = Triangle(normalX2, [verticesX1[1], verticesX1[2], verticesX2[3]])
+		faceX11 = Triangle(normalX1, [self.corners[3], self.corners[2], self.corners[6]])
+		faceX12 = Triangle(normalX1, [self.corners[3], self.corners[6], self.corners[7]])
+		faceX21 = Triangle(normalX2, [self.corners[0], self.corners[4], self.corners[5]])
+		faceX22 = Triangle(normalX2, [self.corners[0], self.corners[5], self.corners[1]])
 
-		# Get closest and furthest face orthogonal to y direction
+		# Get lowest and highest face orthogonal to y direction in x, z plane
 		normalY1 = getNormalizedVector(np.array([relX, -relY, relZ]))
 		normalY2 = getNormalizedVector(np.array([relX, relY, relZ]))
-		verticesY1 = [np.array([relX + 1, relY, relZ + 1]),
-			np.array([relX, relY, relZ + 1]),
-			np.array([relX, relY, relZ]),
-			np.array([relX + 1, relY, relZ])]
-		verticesY2 = [np.array([relX + 1, relY - 1, relZ + 1]),
-			np.array([relX, relY - 1, relZ + 1]),
-			np.array([relX, relY - 1, relZ]),
-			np.array([relX + 1, relY - 1, relZ])]
 
-		faceY11 = Triangle(normalY1, [verticesY1[0], verticesY1[1], verticesY1[3]])
-		faceY12 = Triangle(normalY1, [verticesY1[1], verticesY1[2], verticesY1[3]])
-		faceY21 = Triangle(normalY2, [verticesY2[0], verticesY2[1], verticesY2[3]])
-		faceY22 = Triangle(normalY2, [verticesY2[1], verticesY2[2], verticesY2[3]])
+		faceY11 = Triangle(normalY1, [self.corners[4], self.corners[5], self.corners[6]])
+		faceY12 = Triangle(normalY1, [self.corners[4], self.corners[6], self.corners[7]])
+		faceY21 = Triangle(normalY2, [self.corners[0], self.corners[1], self.corners[2]])
+		faceY22 = Triangle(normalY2, [self.corners[0], self.corners[2], self.corners[3]])
 
-		# Get closest face orthogonal to z direction
+		# Get closest and furthest face orthogonal to z direction in x, y plane
 		normalZ1 = getNormalizedVector(np.array([relX, relY, -relZ]))
 		normalZ2 = getNormalizedVector(np.array([relX, relY, relZ]))
-		verticesZ1 = [np.array([relX - 1, relY + 1, relZ]),
-			np.array([relX, relY + 1, relZ]),
-			np.array([relX, relY, relZ]),
-			np.array([relX - 1, relY, relZ])]
-		verticesZ2 = [np.array([relX - 1, relY + 1, relZ + 1]),
-			np.array([relX, relY + 1, relZ + 1]),
-			np.array([relX, relY, relZ + 1]),
-			np.array([relX - 1, relY, relZ + 1])]
 
-		faceZ11 = Triangle(normalZ1, [verticesZ1[0], verticesZ1[1], verticesZ1[3]])
-		faceZ12 = Triangle(normalZ1, [verticesZ1[1], verticesZ1[2], verticesZ1[3]])
-		faceZ21 = Triangle(normalZ2, [verticesZ2[0], verticesZ2[1], verticesZ2[3]])
-		faceZ22 = Triangle(normalZ2, [verticesZ2[1], verticesZ2[2], verticesZ2[3]])
+		faceZ11 = Triangle(normalZ1, [self.corners[1], self.corners[5], self.corners[6]])
+		faceZ12 = Triangle(normalZ1, [self.corners[1], self.corners[6], self.corners[2]])
+		faceZ21 = Triangle(normalZ2, [self.corners[0], self.corners[3], self.corners[7]])
+		faceZ22 = Triangle(normalZ2, [self.corners[0], self.corners[7], self.corners[4]])
 
 		# Collect all of the triangles
 		self.triangles = [faceX11, faceX12, faceX21, faceX22,
@@ -206,6 +201,9 @@ class Block(object):
 
 	def getZ(self):
 		return self.z
+
+	def getCorners(self):
+		return self.corners
 
 
 	def intersect(self, ray, doEarlyOut = True):
@@ -263,22 +261,40 @@ class VisionHandler(object):
 		self.matrix = np.swapaxes(temp, 1, 2)
 
 
+	def areValidRelCoords(self, relX, relY, relZ):
+		""" Returns True/False if the given relative coords are valid. """
+		if relX < -self.size or relX > self.size:
+			return False
+
+		if relY < -self.size or relY > self.size:
+			return False
+
+		if relZ < -self.size or relZ > self.size:
+			return False
+
+		return True
+
+
 	def getBlockAtRelPos(self, relX, relY, relZ):
 		"""
 		Returns the block at the given x, y, z position relative to the player.
 		Returns empty string if -size > x, y, z or x, y, z > size (out of bounds).
 		This also corresponds to "we don't know whats there".
 		"""
-		if relX < -self.size or relX > self.size:
+
+		if self.areValidRelCoords(relX, relY, relZ):
+			return self.matrix[self.center + relX, self.center + relY, self.center + relZ]
+		else:
 			return ""
 
-		if relY < -self.size or relY > self.size:
-			return ""
 
-		if relZ < -self.size or relZ > self.size:
-			return ""
+	def _setupVisibilityMatrix(self):
+		self.visible = np.zeros((self.realSize, self.realSize, self.realSize), dtype=bool)
 
-		return self.matrix[self.center + relX, self.center + relY, self.center + relZ]
+	def _fixDefaultVisibility(self):
+		""" We can always "see" the 2 blocks where the player is standing """
+		self.visible[self.center, self.center, self.center] = True
+		self.visible[self.center, self.center + 1, self.center] = True
 
 
 	def isVisible(self, relX, relY, relZ):
@@ -292,6 +308,24 @@ class VisionHandler(object):
 	def setInvisible(self, relX, relY, relZ):
 		""" Sets the block at relative x, y, z coordinates to empty string. """
 		self.visible[self.center + relX, self.center + relY, self.center + relZ] = False
+
+
+	def applyVisibility(self):
+		""" Applies the visiblity matrix to the observation matrix. """
+		for x in range(-self.size, self.size + 1):
+			for y in range(-self.size, self.size + 1):
+				for z in range(-self.size, self.size + 1):
+					if not self.isVisible(x, y, z):
+						self.matrix[self.center + x, self.center + y, self.center + z] = ""
+
+
+	def _setupBlockList(self):
+		"""
+		Used to setup the list of visible blocks that can be used by FOV
+		filtering and raytracing.
+		"""
+
+		self.blocks = []
 
 
 	def _filterCoarse(self):
@@ -318,8 +352,7 @@ class VisionHandler(object):
 			for i in range(42):
 				print "I CAN'T BREEEAATTHEEE!! HELP ME I'M FUCKING SUFFOCATING!!!"
 
-		self.visible[self.center, self.center, self.center] = True
-		self.visible[self.center, self.center + 1, self.center] = True
+		self._fixDefaultVisibility()
 
 		# We basically expand our search for visible blocks outward from where
 		# the player is standing, and check adjacant blocks to see if they are
@@ -400,54 +433,76 @@ class VisionHandler(object):
 				# print "Stopping after {} iterations since nothing changed!".format(iterations)
 				break
 
-	def _filterFOV(self, lookAt, playerIsCrouching = False):
+	def _filterFOV(self, lookAt):
 		""" Filters out all non-visible blocks that the agent cannot see """
 
 		# Convert all currently visible blocks to blocks of triangles. Also, we
 		# do a simple angle test with blocks that are absolutely out of view
-		blocks = []
+		self._setupBlockList()
 		lookAt = getNormalizedVector(lookAt)
 
 		# TODO: Fix fov calculation into correct one that minecraft uses...
-		fov = radians(FOV) * 2.0
+		fov = radians(FOV) * 1.5
 
-		print "lookAt = {}".format(lookAt)
+		# print "lookAt = {}, fov = {}\n".format(lookAt, fov)
+		print "coarse filtered matrix = \n{}".format(self.matrix)
 
 		for x in range(-self.size, self.size + 1):
 			for y in range(-self.size, self.size + 1):
 				for z in range(-self.size, self.size + 1):
+					# print "block x = {}, y = {}, z = {} ({})".format(
+					# 	x, y, z, self.getBlockAtRelPos(x, y, z))
 					# Skip all non-visible blocks
 					if self.isVisible(x, y, z):
-						# Check dot product visibility for visible blocks, aka angle test
-						blockDir = getNormalizedVector(np.array([x, y, z], dtype=float))
-						angle = acos(np.dot(blockDir, lookAt))
-						print "angle = {}, fov = {}".format(angle, fov)
+						block = Block(x, y, z)
 
-						if angle >= -fov and angle <= fov:
-							blocks.append(Block(x, y, z))
-						else:
-							print "Setting block {} {} {} = {} to invisible...".format(
-								x, y, z, self.getBlockAtRelPos(x, y, z))
+						# Check dot product visibility for visible blocks, aka
+						# angle test for every corner of the block. If one of
+						# the corners is visible, then the block is considered
+						# visible as well.
+						cornerVisible = False
+						corners = block.getCorners()
+
+						for i in range(len(corners)):
+							cornerDir = getNormalizedVector(corners[i])
+							angle = acos(np.dot(cornerDir, lookAt))
+							# print "corner {}, angle = {}".format(i, angle)
+
+							if angle >= -fov and angle <= fov:
+								cornerVisible = True
+								self.blocks.append(block)
+								# print "\tblock is visible!"
+								break
+
+						if not cornerVisible:
+							# print "\t block is NOT visible!"
 							self.setInvisible(x, y, z)
 
-		return
+		self._fixDefaultVisibility()
+
+
+	def _filterRayTraced(self, lookAt, playerIsCrouching = False):
+		"""
+		Filters occluded blocks by using ray-tracing of the visible blocks...
+		TODO: FINISH THIS AND FIX IT
+		"""
 
 		# Now we can ray-trace all the blocks... First, we setup a 2D grid of
 		# rays that we will shoot from the players eyes...
+		lookAt = getNormalizedVector(lookAt)
 		numX = 160
 		numY = 90
 		distance = 0.1
 
 		# Calculate some FOV bullshit
 		aspectRatio = numX * 1.0 / numY
-		fovY = radians(FOV) / 2.0
-		ratioFov = tan(fovy)
+		fov = radians(FOV) / 2.0
+		ratioFov = tan(fov)
 
 		# Get the origin of the camera (aka the eyes)
 		origin = np.array([0, PLAYER_EYES_CROUCHING if playerIsCrouching else PLAYER_EYES, 0])
 
 		# Get left and up directions of the image plane
-		lookAt = getNormalizedVector(lookAt)
 		left = getNormalizedVector(np.cross(lookAt + np.array([0, 0.1, 0]), lookAt))
 		up = getNormalizedVector(np.cross(lookAt, left))
 		left = getNormalizedVector(np.cross(up, lookAt))
@@ -498,36 +553,27 @@ class VisionHandler(object):
 					previousBlock = self.getBlockAtRelPos(tempBlock.getX(),
 						tempBlock.getY(), tempBlock.getZ())
 
+		self._fixDefaultVisibility()
 
-		print "blocks[2] = {}".format(blocks[2])
 
 	def filterOccluded(self, lookAt, playerIsCrouching = False):
 		""" Filters out all occluded blocks that the agent cannot see. """
 
-		self.visible = np.zeros((self.realSize, self.realSize, self.realSize), dtype=bool)
+		# First we setup the visibility matrix, and do coarse filtering
+		self._setupVisibilityMatrix()
 		self._filterCoarse()
 		oldVisible = np.copy(self.visible)
-		self._filterFOV(lookAt, playerIsCrouching)
-		difference = (oldVisible == self.visible)
+		self.applyVisibility()
 
-		# Now we filter out all the blocks that are not visible because of our view
-		# TODO: Finish this... Keep pitch, yaw, and horizontal and vertical FOV in mind...
-		# Pitch = angle in the range (-180, 180] (left/right rotate)
-		# 	-180 or 180 		facing north (towards negative z)
-		# 	90 					facing west  (towards negative x)
-		# 	0					facing south (towards positive z)
-		# 	-90					facing east  (towards positive x)
-		# Yaw = angle in the range [-90, 90] (up/down)
-		#	0 					horizontal, parallel to the ground
-		# 	-90					vertical, looking to the sky
-		#	90					vertical, looking to the ground
+		# Then we do more advanced filtering based on the FOV of the player
+		self._filterFOV(lookAt)
+		difference = (oldVisible != self.visible)
+		print "filterFOV changed something = {}".format(difference.any())
+		self.applyVisibility()
 
-		# Now we apply the visibility to the actual matrix
-		for x in range(-self.size, self.size + 1):
-			for y in range(-self.size, self.size + 1):
-				for z in range(-self.size, self.size + 1):
-					if not self.isVisible(x, y, z):
-						self.matrix[self.center + x, self.center + y, self.center + z] = ""
+		# Finally, we can do ray-tracing to determine occluded blocks...
+		# TODO: Finish that function
+		# self._filterRayTraced(lookAt, playerIsCrouching)
 
 		print self.matrix
 
@@ -579,14 +625,14 @@ def getMissionXML():
 					<ObservationFromRay />
 					<ObservationFromHotBar />
 					<ObservationFromGrid>
-						<Grid name="floor3x3">
-							<min x="-1" y="-1" z="-1"/>
-							<max x="1" y="-1" z="1"/>
-						</Grid>
-
 						<Grid name="{0}">
 							<min x="-{1}" y="-{1}" z="-{1}"/>
 							<max x="{1}" y="{1}" z="{1}"/>
+						</Grid>
+
+						<Grid name="floor3x3">
+							<min x="-1" y="-1" z="-1"/>
+							<max x="1" y="-1" z="1"/>
 						</Grid>
 					</ObservationFromGrid>
 				</AgentHandlers>
@@ -683,53 +729,44 @@ if __name__ == "__main__":
 			pitch = observations["Pitch"]
 			yaw = observations["Yaw"]
 
+			# Pitch = angle in the range (-180, 180] (left/right rotate)
+			# 	-180 or 180 		facing north (towards negative z)
+			# 	90 					facing west  (towards negative x)
+			# 	0					facing south (towards positive z)
+			# 	-90					facing east  (towards positive x)
+			# Yaw = angle in the range [-90, 90] (up/down)
+			#	0 					horizontal, parallel to the ground
+			# 	-90					vertical, looking to the sky
+			#	90					vertical, looking to the ground
+
+			# TODO: Figure out how to know if the player is crouching or not...
+			playerIsCrouching = False
+
 			# Get the vector pointing from the eyes to the thing we're looking at
 			x, y, z = observations["XPos"], observations["YPos"], observations["ZPos"]
+			y += PLAYER_EYES_CROUCHING if playerIsCrouching else PLAYER_EYES
+
 			lineOfSight = observations["LineOfSight"]
 			block = np.array([lineOfSight["x"], lineOfSight["y"], lineOfSight["z"]])
-			lookAt = getNormalizedVector(block - np.array([x, y, z]))
+			playerEyes = np.array([x, y, z])
+			temp = block - playerEyes
+			lookAt = getNormalizedVector(temp)
+			print "player eyes = {}, block = {}, temp = {}, final lookAt = {}".format(
+				playerEyes, block, temp, lookAt)
 
-			obsHandler.filterOccluded(lookAt)
+			obsHandler.filterOccluded(lookAt, playerIsCrouching)
 			# print "\"visible\" matrix = {}".format(obsHandler.matrix)
 
 			duration = time.time() - startTime
-			print "Handling vision took {} ms!".format(duration)
-
-			# print "dirt block: {}".format(obsHandler.getBlockAtRelPos(-1, -1, 0))
-
-			# Check if we have reached the position in front of the glass
-			if movedFinal:
-				time.sleep(1)
-				agentHost.sendCommand("move 0")
+			# print "Handling vision took {} ms!".format(duration)
 
 			# Check if we have reached the position in front of the tree
 			# Ugh, floating point comparisons...
 			if ceil(x) == -3 and int(y) == 7 and ceil(z) == 1:
 				print "Reached pos! x = {}, y = {}, z = {}\n\n\n".format(x, y, z)
 				agentHost.sendCommand("move 0")
-				# Make 1 step to the left for science if we havent done already
-				if not steppedLeft:
-					agentHost.sendCommand("strafe -1")
-					agentHost.sendCommand("pitch 1")
-					time.sleep(0.5)
-					agentHost.sendCommand("pitch 0")
-					agentHost.sendCommand("yaw 1")
-					time.sleep(0.5)
-					agentHost.sendCommand("yaw 0")
-					steppedLeft = True
-					time.sleep(1.5)
-
-			if not steppedLeft:
-				agentHost.sendCommand("move 1")
-				time.sleep(0.5)
-				agentHost.sendCommand("move 0")
-
 			else:
-				if not movedFinal:
-					agentHost.sendCommand("move 1")
-					movedFinal = True
-					time.sleep(0.5)
-					agentHost.sendCommand("move 0")
+				agentHost.sendCommand("move 1")
 
 		for error in worldState.errors:
 			print "Error:", error.text
