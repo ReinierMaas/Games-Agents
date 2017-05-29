@@ -1,7 +1,6 @@
 # Utility file with utility code and functions
 
 from math import sqrt, fsum
-import numpy as np
 
 
 def getVectorLength(vector):

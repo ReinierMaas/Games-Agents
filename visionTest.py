@@ -1,4 +1,4 @@
-# Example using vision
+# Example using vision, tries to find a tree and walks to it using controller
 
 import MalmoPython
 import os
