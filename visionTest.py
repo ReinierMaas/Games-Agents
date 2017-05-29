@@ -178,7 +178,13 @@ if __name__ == "__main__":
 			playerPos = getPlayerPos(observation)
 
 			# Print all the blocks that we can see
-			print "blocks around us: \n{}".format(visionHandler.matrix)
+			print "blocks around us: \n{}".format(visionHandler)
+			print "visible blocks: \n"
+
+			for block in visionHandler.visibleBlocks:
+				x, y, z = block.getXYZ()
+				print "\t{}, type = {}".format(block, visionHandler.getBlockAtRelPos(x, y, z))
+
 
 			# Look for wood
 			woodPositions = visionHandler.findWood()

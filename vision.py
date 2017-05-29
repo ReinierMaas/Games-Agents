@@ -51,6 +51,10 @@ class VisionHandler(object):
 		self.__setupVisibleBlockList()
 
 
+	def __repr__(self):
+		return "{}".format(self.matrix)
+
+
 	def updateFromObservation(self, cubeObservation):
 		"""
 		Converts the 1D list of blocks into our 3D matrix. Don't forget to call
@@ -595,6 +599,10 @@ class Block(object):
 		self.triangles = [faceX11, faceX12, faceX21, faceX22,
 			faceY11, faceY12, faceY21, faceY22,
 			faceZ11, faceZ12, faceZ21, faceZ22]
+
+
+	def __repr__(self):
+		return "Block at x = {}, y = {}, z = {}".format(self.x, self.y, self.z)
 
 
 	def getX(self):
