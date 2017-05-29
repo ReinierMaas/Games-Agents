@@ -156,7 +156,6 @@ if __name__ == "__main__":
 	# Setup vision handler, controller, etc
 	visionHandler = VisionHandler(CUBE_SIZE)
 	controller = Controller(agentHost)
-	targetBlock = ""
 	targetBlockPos = None
 	targetBlockPosRel = None
 
@@ -173,13 +172,13 @@ if __name__ == "__main__":
 
 			# Update vision and filter occluded blocks
 			controller.update(observation)
-			controller.setCrouch(True)
+			controller.setCrouch(False)
 			visionHandler.updateFromObservation(observation[CUBE_OBS])
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = getPlayerPos(observation)
 
 			# Print all the blocks that we can see
-			# print "blocks around us: \n{}".format(visionHandler.matrix)
+			print "blocks around us: \n{}".format(visionHandler.matrix)
 
 			# Look for wood
 			woodPositions = visionHandler.findWood()
@@ -194,7 +193,11 @@ if __name__ == "__main__":
 				targetBlockPosRel = None
 			else:
 				# Walk to the first wood block
-				realWoodPos = getRealPosFromRelPos(playerPos, woodPositions[0])
+				realWoodPos = playerPos.astype(int) + woodPositions[0]
+				tempx, tempy, tempz = woodPositions[0]
+				print "wood at {}, {}, {}: {}".format(tempx, tempy, tempz,
+					visionHandler.isBlock(tempx, tempy, tempz, BLOCK_WOOD))
+
 				print "Wood found at relative position {} and absolute position {}".format(
 					targetBlockPosRel, targetBlockPos)
 
@@ -223,7 +226,7 @@ if __name__ == "__main__":
 				# punching it, which means we are less than 1 block away (aka,
 				# we are standing right in front of the wood block)
 				# TODO: Use line of sight stuff
-				distance = getVectorDistance(getRealPos(playerPos), targetBlockPos)
+				distance = getVectorDistance(playerPos, targetBlockPos)
 				# print "distance = {}".format(distance)
 
 				if distance <= sqrt(3):

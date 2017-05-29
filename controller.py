@@ -8,6 +8,7 @@
 import MalmoPython
 import numpy as np
 
+from util import *
 from math import *
 
 
@@ -78,7 +79,8 @@ class Controller(object):
 
 
 	def lookAtVertically(self, position):
-		dx, dy, dz = self.location - position
+		eyes = np.array([0, PLAYER_EYES_CROUCHING if self.crouch else PLAYER_EYES, 0])
+		dx, dy, dz = self.location - (position + eyes)
 		dh = sqrt(dx**2 + dz**2)
 		pitch = degrees(atan2(dy, dh))
 		# print "dx = {}, dy = {}, dz = {}, dh = {}, pitch = {}".format(dx, dy, dz,
@@ -91,10 +93,8 @@ class Controller(object):
 		self.lookAtHorizontally(position)
 
 	def setCrouch(self, crouching):
-		""" Makes the agent crouch when true. """
+		""" Makes the agent crouch when True. """
 		self.crouch = int(bool(crouching))
-
-		print "Setting crouch: {}".format(self.crouch)
 		self.agent.sendCommand("crouch {}".format(self.crouch))
 
 	def isCrouching(self):
