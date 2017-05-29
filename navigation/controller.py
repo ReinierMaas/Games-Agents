@@ -1,6 +1,4 @@
-# Use observation from ray to determine if a block to destroy has been broken:
-# the coordinate should change when a block is broken!
-
+# Main code for handling walking around and controlling the agent
 
 # Assumes:
 # <ObservationFromFullStats/>
@@ -8,10 +6,7 @@
 # observations.get("Yaw", 0)
 
 import MalmoPython
-import os
-import sys
-import time
-import json
+
 from math import *
 
 def shortAngle(angle1, angle2):
