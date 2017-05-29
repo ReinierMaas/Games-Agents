@@ -167,11 +167,12 @@ if __name__ == "__main__":
 			yaw = observation[u"Yaw"]
 
 			# TODO: Figure out how to know if the player is crouching or not...
-			playerIsCrouching = False
+			playerIsCrouching = controller.isCrouching()
 			lookAt = getLookAt(observation, playerIsCrouching)
 
 			# Update vision and filter occluded blocks
 			controller.update(observation)
+			controller.setCrouch(True)
 			visionHandler.updateFromObservation(observation[CUBE_OBS])
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = getPlayerPos(observation)
