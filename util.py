@@ -112,7 +112,7 @@ def getLookAt(observation, playerIsCrouching):
 		# Calculate the rotation of the starting direction the player looks in
 		startDir = np.array([1, 0, 1])		# Corresponds to pitch = yaw = 0
 		rotationMatrix = getRotationMatrix(pitch, yaw)
-		lookAt = rotationMatrix * startDir.T
+		lookAt = np.dot(rotationMatrix, startDir)
 
 	return lookAt
 

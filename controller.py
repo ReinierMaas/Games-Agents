@@ -75,12 +75,15 @@ class Controller(object):
 		yw = degrees(atan2(dz, dx)) + 90
 		self.setYaw(yw)
 
+
 	def lookAtVertically(self, position):
-		dx, dy, dz = self.location[0] - position[0], \
-			self.location[1] - position[1], self.location[2] - position[2]
+		dx, dy, dz = self.location - position
 		dh = sqrt(dx**2 + dz**2)
-		ptch = degrees(atan2(dy, dh))
-		self.setPitch(ptch)
+		pitch = degrees(atan2(dy, dh))
+		# print "dx = {}, dy = {}, dz = {}, dh = {}, pitch = {}".format(dx, dy, dz,
+		# 	dh, pitch)
+		self.setPitch(pitch)
+
 
 	def lookAt(self, position):
 		self.lookAtVertically(position)

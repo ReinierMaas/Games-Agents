@@ -49,7 +49,7 @@ def getMissionXML():
 			<AgentSection mode="Survival">
 				<Name>YourMom</Name>
 				<AgentStart>
-					<Placement x="0.5" y="7.0" z="1.5" yaw="90" pitch="10" />
+					<Placement x="0.5" y="7.0" z="0.5" yaw="90" />
 				</AgentStart>
 
 				<AgentHandlers>
@@ -156,6 +156,9 @@ if __name__ == "__main__":
 	# Setup vision handler, controller, etc
 	visionHandler = VisionHandler(CUBE_SIZE)
 	controller = Controller(agentHost)
+	targetBlock = ""
+	targetBlockPos = None
+	targetBlockPosRel = None
 
 	# Mission loop:
 	while worldState.is_mission_running:
@@ -177,36 +180,60 @@ if __name__ == "__main__":
 			playerPos = getPlayerPos(observation)
 
 			# Print all the blocks that we can see
-			print "blocks around us: \n{}".format(visionHandler.matrix)
+			# print "blocks around us: \n{}".format(visionHandler.matrix)
 
 			# Look for wood
 			woodPositions = visionHandler.findWood()
-			print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
+			# print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
 
 			if woodPositions == []:
 				# Shit, no wood visible/in range... keep moving then
 				print "No wood in range!"
 				agentHost.sendCommand("move 1")
+				agentHost.sendCommand("attack 0")
+				targetBlockPos = None
+				targetBlockPosRel = None
 			else:
 				# Walk to the first wood block
 				realWoodPos = getRealPosFromRelPos(playerPos, woodPositions[0])
 				print "Wood found at relative position {} and absolute position {}".format(
-					woodPositions[0], realWoodPos)
-				controller.lookAtHorizontally(realWoodPos)
+					targetBlockPosRel, targetBlockPos)
+
+				# If it's the first wood block we target, set it as new target
+				if targetBlockPos is None:
+					targetBlockPos = realWoodPos
+					targetBlockPosRel = woodPositions[0]
+
+					print "Targeting this wood block (relative {}, real {}) now...".format(
+						targetBlockPosRel, targetBlockPos)
+				else:
+					# Check if the wood block is gone
+					x, y, z = targetBlockPosRel
+
+					if not visionHandler.isBlock(x, y, z, BLOCK_WOOD):
+						# Stop attacking it since its gone, target next one
+						agentHost.sendCommand("attack 0")
+						targetBlockPos = realWoodPos
+						targetBlockPosRel = woodPositions[0]
+						print "Chopped this block down, next! Relative {}, real {}".format(
+							targetBlockPosRel, targetBlockPos)
+
+				controller.lookAtVertically(targetBlockPos)
 
 				# If we are standing close enough to the wood block, start
 				# punching it, which means we are less than 1 block away (aka,
 				# we are standing right in front of the wood block)
 				# TODO: Use line of sight stuff
-				distance = getVectorDistance(getRealPos(playerPos), realWoodPos)
-				print "distance = {}".format(distance)
+				distance = getVectorDistance(getRealPos(playerPos), targetBlockPos)
+				# print "distance = {}".format(distance)
 
 				if distance <= sqrt(3):
-					print "PUNCH ALL THE TREES!!!"
+					print "Chopping tree down!!!!"
 					agentHost.sendCommand("attack 1")
 					agentHost.sendCommand("move 0")
 				else:
 					# Keep moving forward until we reach it
+					print "Moving towards new wood block..."
 					agentHost.sendCommand("attack 0")
 					agentHost.sendCommand("move 1")
 

@@ -106,7 +106,7 @@ class VisionHandler(object):
 		coordinates = []
 
 		for block in self.visibleBlocks:
-			x, y, z = block.getX(), block.getY(), block.getZ()
+			x, y, z = block.getXYZ()
 
 			if self.isBlock(x, y, z, blockName):
 				coordinates.append(np.array([x, y, z]))
@@ -290,7 +290,7 @@ class VisionHandler(object):
 		print "coarse filtered matrix = \n{}".format(self.matrix)
 
 		for block in self.visibleBlocks:
-			x, y, z = block.getX(), block.getY(), block.getZ()
+			x, y, z = block.getXYZ()
 
 			# Skip all non-visible blocks
 			if self.isVisible(x, y, z):
@@ -383,7 +383,7 @@ class VisionHandler(object):
 
 					if t is not None:
 						intersectedBlocks.append(block)
-						x, y, z = block.getX(), block.getY(), block.getZ()
+						x, y, z = block.getXYZ()
 						intersectedBlockTypes.append(self.getBlockAtRelPos(x, y, z))
 						intersectionT.append(t)
 
@@ -401,7 +401,7 @@ class VisionHandler(object):
 					# non-transparant block, all the others are likely occluded
 					# for this pixel
 					for block, blockType in zip(orderedBlocks, orderedTypes):
-						x, y, z = block.getX(), block.getY(), block.getZ()
+						x, y, z = block.getXYZ()
 
 						if blockType in TRANSPARANT_BLOCKS:
 							if not hitNonTransparantBlock:
@@ -605,6 +605,9 @@ class Block(object):
 
 	def getZ(self):
 		return self.z
+
+	def getXYZ(self):
+		return np.array([self.x, self.y, self.z])
 
 	def getCorners(self):
 		return self.corners
