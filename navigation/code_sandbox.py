@@ -110,14 +110,16 @@ nav = Navigator(ac)
 sm = StateMachine()
 
 sm.addState("explore")
+c_time_threshold_explore = 4
 def sm_explore_action():
     global firstWaypoint
+    global c_time_threshold_explore
     if firstWaypoint is None:
         firstWaypoint = nav.lastWaypoint
     agent_host.sendCommand("move 1")
-    if int(c_time) % 10 == 0:
-        turn = random.sample(range(-1, 3), 1)[0] * 45
-        ac.turn(turn)
+    if c_time > c_time_threshold_explore:
+        ac.turn(90)
+        c_time_threshold_explore += 4
 
 def sm_explore_event():
     global nav
@@ -147,6 +149,8 @@ sm.addTransition("search", "navigating", lambda: not nav.exploring, lambda: True
 
 def sm_nav2start_event():
     print "target reached"
+    global start_time
+    start_time = time.time()
 
 sm.addTransition("navigating", "start", lambda: nav.targetReached, sm_nav2start_event)
 

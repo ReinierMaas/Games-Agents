@@ -177,11 +177,24 @@ class Navigator(object):
             self.target = self.route.pop(0)
             self.targetReached = False
 
-    def placeWaypoint(self, radius = 3):
+    def placeWaypoint(self, radius = 4):
         wp = WaypointNode(self.controller.Location, radius)
         wp.assignNeighbor(self.lastWaypoint)
         self.lastWaypoint = wp
         print "Placed new waypoint at ", wp.location, " with radius ", wp.radius
+
+    def setBestNode(self,  allNodes):
+        bestNode = None
+        distance = float("inf")
+        wpHere = WaypointNode(self.Location, 0)
+        for node in allNodes:
+            dist = euclidianDistance(wpHere, node)
+            if dist > node.radius:
+                continue
+            elif dist < distance:
+                bestNode = node
+                distance = dist
+        self.lastWaypoint = bestNode
 
     def update(self):
         if not self.enabled:
@@ -191,7 +204,7 @@ class Navigator(object):
                 self.placeWaypoint()
                 return
             #in exploring mode, drop waypoints where you go
-            if distanceH(self.lastWaypoint.location, self.controller.Location) >= self.lastWaypoint.radius * 4:
+            if distanceH(self.lastWaypoint.location, self.controller.Location) >= self.lastWaypoint.radius:
                 allNodes = self.lastWaypoint.getAllNodes()
                 newNode = True
                 for node in allNodes:
@@ -199,18 +212,19 @@ class Navigator(object):
                         continue
                     if node.contains(self.controller.Location):
                         self.lastWaypoint.assignNeighbor(node)
-                        self.lastWaypoint = node
                         newNode = False
                         break #warning: can't handle overlapping nodes
                 if newNode:
                     self.placeWaypoint()
+                else:
+                    self.setBestNode(allNodes)
             allNodes = self.lastWaypoint.getAllNodes()
             for node in allNodes:
                 if distanceH(node.location, self.controller.Location) <= node.radius:
                     self.lastWaypoint.assignNeighbor(node)
 
         elif self.target is not None:
-            if distanceH(self.controller.Location, self.target.location) < self.target.radius:
+            if distanceH(self.controller.Location, self.target.location) < self.target.radius / 4:
                 if len(self.route) > 0:
                     print "next target"
                     self.target = self.route.pop(0)

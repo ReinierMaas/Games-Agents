@@ -69,7 +69,7 @@ class Controller(object):
 
     def setYaw(self, newYaw):
         """look at a given yaw value"""
-        if self.Yaw == newYaw:
+        if int(self.Yaw) == int(newYaw):
             return
         print "set new yaw:", newYaw
         self.agent.sendCommand("setYaw %f" % newYaw)
