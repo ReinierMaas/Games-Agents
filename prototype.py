@@ -1,180 +1,216 @@
-# ------------------------------------------------------------------------------------------------
-# Copyright (c) 2016 Microsoft Corporation
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-# associated documentation files (the "Software"), to deal in the Software without restriction,
-# including without limitation the rights to use, copy, modify, merge, publish, distribute,
-# sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all copies or
-# substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-# NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-# ------------------------------------------------------------------------------------------------
-
-# Tutorial sample #2: Run simple mission using raw XML
-
 import MalmoPython
 import os
 import sys
 import time
+import json
+import errno
+import numpy as np
+
+from util import *
 from controller import *
+from vision import *
 from navigation import *
-from stateMachine import *
-import random
 
-sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)  # flush print output immediately
+def getMissionXML():
+	""" Generates mission XML with flat world and 1 crappy tree. """
+	return """<?xml version="1.0" encoding="UTF-8" ?>
+		<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+			<About>
+				<Summary>Test filtering of visible blocks and finding visible trees</Summary>
+			</About>
 
-# More interesting generator string: "3;7,44*49,73,35:1,159:4,95:13,35:13,159:11,95:10,159:14,159:6,35:6,95:6;12;"
+			<ServerSection>
+				<ServerInitialConditions>
+					<Time>
+						<StartTime>1000</StartTime>
+						<AllowPassageOfTime>true</AllowPassageOfTime>
+					</Time>
 
-missionXML='''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
-			<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+					<Weather>clear</Weather>
+				</ServerInitialConditions>
 
-			  <About>
-				<Summary>Hello world!</Summary>
-			  </About>
-
-			  <ServerSection>
 				<ServerHandlers>
-				  <FlatWorldGenerator generatorString="3;7,220*1,5*3,2;3;,biome_1"/>
-				  <ServerQuitFromTimeUp timeLimitMs="3000000"/>
-				  <ServerQuitWhenAnyAgentFinishes/>
+					<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />
+
+					<DrawingDecorator>
+						<DrawSphere x="-5" y="11" z="0" radius="3" type="leaves" />
+						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="11" z2="0" type="log" />
+						<DrawLine x1="-6" y1="7" z1="-1" x2="-6" y2="7" z2="1" type="stone" />
+						<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
+					</DrawingDecorator>
+
+					<ServerQuitWhenAnyAgentFinishes />
+					<ServerQuitFromTimeUp timeLimitMs="60000" description="Ran out of time." />
 				</ServerHandlers>
-			  </ServerSection>
+			</ServerSection>
 
-			  <AgentSection mode="Survival">
-				<Name>MalmoTutorialBot</Name>
-				<AgentStart/>
+			<AgentSection mode="Creative">
+				<Name>YourMom</Name>
+				<AgentStart>
+					<Placement x="0.5" y="7.0" z="1.5" yaw="90" pitch="10" />
+				</AgentStart>
+
 				<AgentHandlers>
-				  <ObservationFromFullStats/>
-				  <AbsoluteMovementCommands/>
-				  <ContinuousMovementCommands />
+					<AbsoluteMovementCommands/>
+					<ContinuousMovementCommands />
+					<InventoryCommands />
+
+					<ObservationFromFullStats />
+					<ObservationFromRay />
+					<ObservationFromHotBar />
+					<ObservationFromGrid>
+						<Grid name="{0}">
+							<min x="-{1}" y="-{1}" z="-{1}"/>
+							<max x="{1}" y="{1}" z="{1}"/>
+						</Grid>
+					</ObservationFromGrid>
 				</AgentHandlers>
-			  </AgentSection>
-			</Mission>'''
+			</AgentSection>
+		</Mission>""".format(CUBE_OBS, CUBE_SIZE)
 
-# Create default Malmo objects:
 
-agent_host = MalmoPython.AgentHost()
-try:
-	agent_host.parse( sys.argv )
-except RuntimeError as e:
-	print 'ERROR:',e
-	print agent_host.getUsage()
-	exit(1)
-if agent_host.receivedArgument("help"):
-	print agent_host.getUsage()
-	exit(0)
+def getAgentHost():
+	""" Creates agent host connection and parses commandline arguments. """
+	agentHost = MalmoPython.AgentHost()
+	agentHost.addOptionalStringArgument("recordingDir,r", "Path to location " + \
+		"for saving mission recordings", "")
 
-my_mission = MalmoPython.MissionSpec(missionXML, True)
-my_mission_record = MalmoPython.MissionRecordSpec()
-
-# Attempt to start a mission:
-max_retries = 3
-for retry in range(max_retries):
 	try:
-		agent_host.startMission( my_mission, my_mission_record )
-		break
+		agentHost.parse(sys.argv )
 	except RuntimeError as e:
-		if retry == max_retries - 1:
-			print "Error starting mission:",e
-			exit(1)
-		else:
-			time.sleep(2)
+		print "ERROR:", e
+		print agentHost.getUsage()
+		exit(1)
 
-# Loop until mission starts:
-print "Waiting for the mission to start ",
-world_state = agent_host.getWorldState()
-while not world_state.has_mission_begun:
-	sys.stdout.write(".")
-	time.sleep(0.1)
-	world_state = agent_host.getWorldState()
-	for error in world_state.errors:
-		print "Error:",error.text
+	if agentHost.receivedArgument("help"):
+		print agentHost.getUsage()
+		exit(0)
 
-print
-print "Mission running ",
+	return agentHost
 
 
-start_time = time.time()
-c_time = 0
-firstWaypoint = None
-ac = Controller(agent_host)
-ac.setYaw(0)
-nav = Navigator(ac)
-sm = StateMachine()
+def setupRecording(agentHost):
+	""" If commandline arguments specify it, setup recording of this agent. """
+	recording = False
+	myMissionRecord = MalmoPython.MissionRecordSpec()
+	recordingsDirectory = agentHost.getStringArgument("recordingDir")
 
-sm.addState("explore")
-c_time_threshold_explore = 4
-def sm_explore_action():
-	global firstWaypoint
-	global c_time_threshold_explore
-	if firstWaypoint is None:
-		firstWaypoint = nav.lastWaypoint
-	agent_host.sendCommand("move 1")
-	if c_time > c_time_threshold_explore:
-		ac.turnByAngle(90)
-		c_time_threshold_explore += 4
+	if len(recordingsDirectory) > 0:
+		recording = True
 
-def sm_explore_event():
-	global nav
-	nav.exploring = True
+		try:
+			os.makedirs(recordingsDirectory)
+		except OSError as exception:
+			if exception.errno != errno.EEXIST: # ignore error if already existed
+				raise
 
-sm.addTransition("start", "explore", lambda: True, sm_explore_event)
-sm.actions["explore"] = sm_explore_action
+		myMissionRecord.recordRewards()
+		myMissionRecord.recordObservations()
+		myMissionRecord.recordCommands()
 
-sm.addState("search")
-def sm_search_event():
-	global nav
-	global agent_host
-	nav.exploring = False
-	agent_host.sendCommand("move 0")
-	route = findRoute(nav.lastWaypoint, firstWaypoint)
-	print route
-	nav.setRoute(route)
+	if recording:
+		myMissionRecord.setDestination(recordingsDirectory + "//" + "Mission_" + str(i) + ".tgz")
 
-def sm_nav_condition():
-	global c_time
-	return c_time >= 20.0
-
-sm.addTransition("explore", "search", sm_nav_condition, sm_search_event)
-
-sm.addState("navigating")
-sm.addTransition("search", "navigating", lambda: not nav.exploring, lambda: True)
-
-def sm_nav2start_event():
-	print "target reached"
-	global start_time
-	start_time = time.time()
-
-sm.addTransition("navigating", "start", lambda: nav.targetReached, sm_nav2start_event)
+	return myMissionRecord
 
 
+def buildGraph(navigator):
+	(_,y,_) = navigator.controller.getLocation()
+	width, depth = 5,5
+	grid = [[WaypointNode((-x*5+0.5,y,z*5+0.5), 3) for x in range(width)] for z in range(depth)]
+	for x in range(width - 1):
+		for z in range(depth - 1):
+			grid[x][z].assignNeighbor(grid[x + 1, z])
+			grid[x][z].assignNeighbor(grid[x + 1, z + 1])
+			grid[x][z].assignNeighbor(grid[x, z + 1])
 
 
-# Loop until mission ends:
-while world_state.is_mission_running:
-	time.sleep(0.05)
-	c_time = time.time() - start_time
+if __name__ == "__main__":
+	sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)  # flush print output immediately
 
-	world_state = agent_host.getWorldState()
-	for error in world_state.errors:
-		print "Error:",error.text
-	if world_state.number_of_observations_since_last_state > 0: # Have any observations come in?
-		msg = world_state.observations[-1].text                 # Yes, so get the text
-		obs = json.loads(msg)
-		if obs is not None:
-			ac.update(obs) #update controller
-			nav.update() #update navigation
-			sm.update() #update state machine
+	# Setup agent host
+	agentHost = getAgentHost()
+	myMission = MalmoPython.MissionSpec(getMissionXML(), True)
+
+	# Optionally, set up a recording
+	myMissionRecord = setupRecording(agentHost)
+
+	# Start the mission:
+	maxRetries = 3
+
+	for retry in range(maxRetries):
+		try:
+			agentHost.startMission(myMission, myMissionRecord)
+			break
+		except RuntimeError as e:
+			if retry == maxRetries - 1:
+				print "Error starting mission:", e
+				exit(1)
+			else:
+				time.sleep(2)
+
+	print "Waiting for the mission to start "
+	worldState = agentHost.getWorldState()
+
+	while not worldState.has_mission_begun:
+		sys.stdout.write(".")
+		time.sleep(0.1)
+		worldState = agentHost.getWorldState()
+
+	print "\nMission running"
+	time.sleep(0.5)		# To allow observations and rendering to become ready
 
 
+	# Setup vision handler, controller, etc
+	visionHandler = VisionHandler(CUBE_SIZE)
+	controller = Controller(agentHost)
+	navigator = Navigator()
+	buildGraph(navigator)
+	stateMachine = StateMachine()
 
-print
-print "Mission ended"
-# Mission has ended.
+	# Mission loop:
+	while worldState.is_mission_running:
+		if worldState.number_of_observations_since_last_state > 0:
+			msg = worldState.observations[-1].text
+			observation = json.loads(msg)
+			pitch = observation[u"Pitch"]
+			yaw = observation[u"Yaw"]
+
+			# TODO: Figure out how to know if the player is crouching or not...
+			playerIsCrouching = False
+			lookAt = getLookAt(observation, playerIsCrouching)
+
+			# Update vision and filter occluded blocks
+			controller.update(observation)
+			navigator.update()
+			stateMachine.update()
+			visionHandler.updateFromObservation(observation[CUBE_OBS])
+			visionHandler.filterOccluded(lookAt, playerIsCrouching)
+			playerPos = getPlayerPos(observation)
+
+
+			# # Print all the blocks that we can see
+			# print "blocks around us: \n{}".format(visionHandler.matrix)
+
+			# Look for wood
+			woodPositions = visionHandler.findWood()
+			print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
+
+			if woodPositions == []:
+				# Shit, no wood visible/in range... keep moving then
+				print "No wood in range!"
+				agentHost.sendCommand("move 1")
+			else:
+				# Walk to the first wood block
+				realWoodPos = getRealPosFromRelPos(playerPos, woodPositions[0])
+				print "Wood found at relative position {} and absolute position {}".format(
+					woodPositions[0], realWoodPos)
+				controller.lookAtHorizontally(realWoodPos)
+				agentHost.sendCommand("move 1")
+
+		for error in worldState.errors:
+			print "Error:", error.text
+
+		worldState = agentHost.getWorldState()
+
+	print "\nMission ended!"
