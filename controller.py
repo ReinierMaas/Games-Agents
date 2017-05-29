@@ -68,6 +68,9 @@ class Controller(object):
 		# print "Setting new pitch: {}".format(newYaw)
 		self.agent.sendCommand("setPitch {}".format(newPitch))
 
+	def lookAtHorizontally2(self, position):
+		pos = np.array(position)
+		self.lookAtHorizontally(pos)
 
 	def lookAtHorizontally(self, position):
 		""" Turns the agent to look at the given position. """

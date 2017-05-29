@@ -24,6 +24,9 @@ class WaypointNode(object):
 			self.data = {}
 		self.nodes = []
 
+	def __repr__(self):
+		return "<{0}, {1}>".format(self.location, self.radius)
+
 	def contains(self, point):
 		x, y, z = self.location
 		xp, yp, zp = point
@@ -225,7 +228,7 @@ class Navigator(object):
 					self.lastWaypoint.assignNeighbor(node)
 
 		elif self.target is not None:
-			if distanceH(self.controller.getLocation(), self.target.location) < self.target.radius / 4:
+			if distanceH(self.controller.getLocation(), self.target.location) < self.target.radius:
 				if len(self.route) > 0:
 					print "next target"
 					self.target = self.route.pop(0)

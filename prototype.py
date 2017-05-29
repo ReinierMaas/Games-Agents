@@ -10,6 +10,7 @@ from util import *
 from controller import *
 from vision import *
 from navigation import *
+from stateMachine import *
 
 def getMissionXML():
 	""" Generates mission XML with flat world and 1 crappy tree. """
@@ -47,7 +48,7 @@ def getMissionXML():
 			<AgentSection mode="Creative">
 				<Name>YourMom</Name>
 				<AgentStart>
-					<Placement x="0.5" y="7.0" z="1.5" yaw="90" pitch="10" />
+					<Placement x="1.5" y="7.0" z="13.5" yaw="90" pitch="10" />
 				</AgentStart>
 
 				<AgentHandlers>
@@ -115,26 +116,29 @@ def setupRecording(agentHost):
 
 
 def buildGraph(navigator):
-	(_,y,_) = navigator.controller.getLocation()
-	width, depth = 5,5
-	grid = [[WaypointNode((-x*5+0.5,y,z*5+0.5), 3) for x in range(width)] for z in range(depth)]
+	y = 7
+	width, depth = 15,15
+	grid = [[WaypointNode((-x*1,y,z*1), 1.5) for x in range(width)] for z in range(depth)]
 	for x in range(width - 1):
 		for z in range(depth - 1):
-			grid[x][z].assignNeighbor(grid[x + 1, z])
-			grid[x][z].assignNeighbor(grid[x + 1, z + 1])
-			grid[x][z].assignNeighbor(grid[x, z + 1])
+			grid[x][z].assignNeighbor(grid[x + 1][z])
+			grid[x][z].assignNeighbor(grid[x + 1][z + 1])
+			grid[x][z].assignNeighbor(grid[x][z + 1])
 
-	grid[4][0].data["Tree"] = True
-	grid[0][0].data["Origin"] = True
-	navigator.lastWaypoint = grid[0][0]
+	grid[0][4].data["Tree"] = True
+	grid[13][1].data["Origin"] = True
+	grid[13][1].radius = 1
+	navigator.lastWaypoint = grid[13][1]
 
 
 # --- State Machine --- #
 def onFindTree(navigator):
 	route = findRouteByKey(navigator.lastWaypoint, "Tree")
+	print route
 	navigator.setRoute(route)
 
 def onCutTree():
+	pass
 
 def onGoBack(navigator):
 	route = findRouteByKey(navigator.lastWaypoint, "Origin")
@@ -142,13 +146,14 @@ def onGoBack(navigator):
 
 
 def initMachine(stateMachine, navigator):
+	doneCutting = True
 	stateMachine.addState("findTree")
 	stateMachine.addState("cutTree")
 	stateMachine.addState("goBack")
 
 	stateMachine.addTransition("start", "findTree", lambda: True, lambda: onFindTree(navigator))
-	stateMachine.addTransition("findTree", "cutTree", lambda: True, lambda: onCutTree())
-	stateMachine.addTransition("cutTree", "goBack", lambda: True, lambda: onGoBack(navigator))
+	stateMachine.addTransition("findTree", "cutTree", lambda: navigator.targetReached, lambda: onCutTree())
+	stateMachine.addTransition("cutTree", "goBack", lambda: doneCutting, lambda: onGoBack(navigator))
 
 # --- Main --- #
 
@@ -191,10 +196,10 @@ if __name__ == "__main__":
 	# Setup vision handler, controller, etc
 	visionHandler = VisionHandler(CUBE_SIZE)
 	controller = Controller(agentHost)
-	navigator = Navigator()
+	navigator = Navigator(controller)
 	buildGraph(navigator)
 	stateMachine = StateMachine()
-	initMachine(stateMachine)
+	initMachine(stateMachine, navigator)
 
 	# Mission loop:
 	while worldState.is_mission_running:
@@ -212,29 +217,29 @@ if __name__ == "__main__":
 			controller.update(observation)
 			navigator.update()
 			stateMachine.update()
-			visionHandler.updateFromObservation(observation[CUBE_OBS])
-			visionHandler.filterOccluded(lookAt, playerIsCrouching)
+			# visionHandler.updateFromObservation(observation[CUBE_OBS])
+			# visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = getPlayerPos(observation)
 
 
 			# # Print all the blocks that we can see
 			# print "blocks around us: \n{}".format(visionHandler.matrix)
 
-			# Look for wood
-			woodPositions = visionHandler.findWood()
-			print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
+			# # Look for wood
+			# woodPositions = visionHandler.findWood()
+			# print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
 
-			if woodPositions == []:
-				# Shit, no wood visible/in range... keep moving then
-				print "No wood in range!"
-				agentHost.sendCommand("move 1")
-			else:
-				# Walk to the first wood block
-				realWoodPos = getRealPosFromRelPos(playerPos, woodPositions[0])
-				print "Wood found at relative position {} and absolute position {}".format(
-					woodPositions[0], realWoodPos)
-				controller.lookAtHorizontally(realWoodPos)
-				agentHost.sendCommand("move 1")
+			# if woodPositions == []:
+			# 	# Shit, no wood visible/in range... keep moving then
+			# 	print "No wood in range!"
+			# 	agentHost.sendCommand("move 1")
+			# else:
+			# 	# Walk to the first wood block
+			# 	realWoodPos = getRealPosFromRelPos(playerPos, woodPositions[0])
+			# 	print "Wood found at relative position {} and absolute position {}".format(
+			# 		woodPositions[0], realWoodPos)
+			# 	controller.lookAtHorizontally(realWoodPos)
+			# 	agentHost.sendCommand("move 1")
 
 		for error in worldState.errors:
 			print "Error:", error.text
