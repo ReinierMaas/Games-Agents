@@ -132,6 +132,8 @@ def buildGraph(navigator):
 
 
 # --- State Machine --- #
+doneCutting = False
+startTime = time.time()
 def onFindTree(navigator):
 	route = findRouteByKey(navigator.lastWaypoint, "Tree")
 	print route
@@ -140,13 +142,19 @@ def onFindTree(navigator):
 def onCutTree():
 	pass
 
+def cutTreeAction():
+	global doneCutting
+	global startTime
+	if time.time() - startTime > 20:
+		doneCutting = True
+
 def onGoBack(navigator):
 	route = findRouteByKey(navigator.lastWaypoint, "Origin")
 	navigator.setRoute(route)
 
 
 def initMachine(stateMachine, navigator):
-	doneCutting = True
+	global doneCutting
 	stateMachine.addState("findTree")
 	stateMachine.addState("cutTree")
 	stateMachine.addState("goBack")
@@ -154,6 +162,8 @@ def initMachine(stateMachine, navigator):
 	stateMachine.addTransition("start", "findTree", lambda: True, lambda: onFindTree(navigator))
 	stateMachine.addTransition("findTree", "cutTree", lambda: navigator.targetReached, lambda: onCutTree())
 	stateMachine.addTransition("cutTree", "goBack", lambda: doneCutting, lambda: onGoBack(navigator))
+
+	stateMachine.actions["cutTree"] = cutTreeAction
 
 # --- Main --- #
 
