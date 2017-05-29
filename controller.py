@@ -25,10 +25,10 @@ class Controller(object):
 	def update(self, observation):
 		""" Updates agent pitch, yaw and position based on observation. """
 		if observation is not None:
-			self.yaw = observation.get("Yaw", 0)
-			self.pitch = observation.get("Pitch", 0)
-			x, y, z = observation.get("XPos", 0), observation.get("YPos", 0), \
-				observation.get("ZPos", 0)
+			self.yaw = observation.get(u"Yaw", 0)
+			self.pitch = observation.get(u"Pitch", 0)
+			x, y, z = observation.get(u"XPos", 0), observation.get(u"YPos", 0), \
+				observation.get(u"ZPos", 0)
 			self.location = np.array([x, y, z])
 
 
