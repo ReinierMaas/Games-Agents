@@ -163,10 +163,8 @@ if __name__ == "__main__":
 			# Get observation info
 			msg = worldState.observations[-1].text
 			observation = json.loads(msg)
-			pitch = observation[u"Pitch"]
-			yaw = observation[u"Yaw"]
 
-			# TODO: Figure out how to know if the player is crouching or not...
+			# Figure out how to know if the player is crouching or not...
 			playerIsCrouching = controller.isCrouching()
 			lookAt = getLookAt(observation, playerIsCrouching)
 
