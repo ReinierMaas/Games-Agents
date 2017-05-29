@@ -166,15 +166,14 @@ if __name__ == "__main__":
 			# Get observation info
 			msg = worldState.observations[-1].text
 			observation = json.loads(msg)
-			pitch = observation[u"Pitch"]
-			yaw = observation[u"Yaw"]
 
-			# TODO: Figure out how to know if the player is crouching or not...
-			playerIsCrouching = False
+			# Figure out how to know if the player is crouching or not...
+			playerIsCrouching = controller.isCrouching()
 			lookAt = getLookAt(observation, playerIsCrouching)
 
 			# Update vision and filter occluded blocks
 			controller.update(observation)
+			controller.setCrouch(True)
 			visionHandler.updateFromObservation(observation[CUBE_OBS])
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = getPlayerPos(observation)

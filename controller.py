@@ -20,6 +20,7 @@ class Controller(object):
 		self.yaw = 0.0
 		self.pitch = 0.0
 		self.location = np.array([0, 0, 0], dtype=float)
+		self.crouch = 0
 
 	def getLocation(self):
 		return (self.location[0], self.location[1], self.location[2])
@@ -88,3 +89,13 @@ class Controller(object):
 	def lookAt(self, position):
 		self.lookAtVertically(position)
 		self.lookAtHorizontally(position)
+
+	def setCrouch(self, crouching):
+		""" Makes the agent crouch when true. """
+		self.crouch = int(bool(crouching))
+
+		print "Setting crouch: {}".format(self.crouch)
+		self.agent.sendCommand("crouch {}".format(self.crouch))
+
+	def isCrouching(self):
+		return self.crouch
