@@ -13,10 +13,8 @@ from math import radians, degrees, acos, tan
 ################################################################################
 CUBE_OBS = "cube10"				# Name that will be used in XML/JSON
 CUBE_SIZE = 2					# Size in 1 direction
-
-PLAYER_EYES = 1.625  			# Player's eyes are at y = 1.625 blocks high
-PLAYER_EYES_CROUCHING = 1.5		# Player's eyes are at y = 1.5 when crouching
 FOV = 70						# Default Field of View for Minecraft
+
 
 # This is a list of all transparant blocks that the agent can see through.
 TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
@@ -100,7 +98,7 @@ class VisionHandler(object):
 		""" Returns True/False if the given block is at the given relative position. """
 		return self.getBlockAtRelPos(relX, relY, relZ) == block
 
-	def findBlocks(self, block):
+	def findBlocks(self, blockName):
 		"""
 		Returns a list of [x, y, z] coordinates as a list of numpy arrays, where
 		the given block is. An empty list is returned if the block cant be found.
@@ -110,12 +108,12 @@ class VisionHandler(object):
 		for block in self.visibleBlocks:
 			x, y, z = block.getX(), block.getY(), block.getZ()
 
-			if isBlock(x, y, z, block):
+			if self.isBlock(x, y, z, blockName):
 				coordinates.append(np.array([x, y, z]))
 
 		return coordinates
 
-	def findWood(self, block):
+	def findWood(self):
 		""" See findBlocks function, returns coordinates of wood/log. """
 		return self.findBlocks(BLOCK_WOOD)
 

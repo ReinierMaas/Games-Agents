@@ -9,6 +9,7 @@ import errno
 import numpy as np
 
 from util import *
+from controller import *
 from vision import *
 
 
@@ -17,7 +18,7 @@ def getMissionXML():
 	return """<?xml version="1.0" encoding="UTF-8" ?>
 		<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 			<About>
-				<Summary>Test filtering of visible blocks</Summary>
+				<Summary>Test filtering of visible blocks and finding visible trees</Summary>
 			</About>
 
 			<ServerSection>
@@ -41,7 +42,7 @@ def getMissionXML():
 					</DrawingDecorator>
 
 					<ServerQuitWhenAnyAgentFinishes />
-					<ServerQuitFromTimeUp timeLimitMs="600000" description="Ran out of time." />
+					<ServerQuitFromTimeUp timeLimitMs="60000" description="Ran out of time." />
 				</ServerHandlers>
 			</ServerSection>
 
@@ -52,8 +53,10 @@ def getMissionXML():
 				</AgentStart>
 
 				<AgentHandlers>
+					<AbsoluteMovementCommands/>
 					<ContinuousMovementCommands />
 					<InventoryCommands />
+
 					<ObservationFromFullStats />
 					<ObservationFromRay />
 					<ObservationFromHotBar />
@@ -62,22 +65,17 @@ def getMissionXML():
 							<min x="-{1}" y="-{1}" z="-{1}"/>
 							<max x="{1}" y="{1}" z="{1}"/>
 						</Grid>
-
-						<Grid name="floor3x3">
-							<min x="-1" y="-1" z="-1"/>
-							<max x="1" y="-1" z="1"/>
-						</Grid>
 					</ObservationFromGrid>
 				</AgentHandlers>
 			</AgentSection>
 		</Mission>""".format(CUBE_OBS, CUBE_SIZE)
 
 
-# Create a simple flatworld mission and run an agent on them.
-if __name__ == "__main__":
-	sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)  # flush print output immediately
+def getAgentHost():
+	""" Creates agent host connection and parses commandline arguments. """
 	agentHost = MalmoPython.AgentHost()
-	agentHost.addOptionalStringArgument("recordingDir,r", "Path to location for saving mission recordings", "")
+	agentHost.addOptionalStringArgument("recordingDir,r", "Path to location " + \
+		"for saving mission recordings", "")
 
 	try:
 		agentHost.parse(sys.argv )
@@ -90,11 +88,12 @@ if __name__ == "__main__":
 		print agentHost.getUsage()
 		exit(0)
 
+	return agentHost
 
-	# Set up a recording
-	numIterations = 3
+
+def setupRecording(agentHost):
+	""" If commandline arguments specify it, setup recording of this agent. """
 	recording = False
-	myMission = MalmoPython.MissionSpec(getMissionXML(), True)
 	myMissionRecord = MalmoPython.MissionRecordSpec()
 	recordingsDirectory = agentHost.getStringArgument("recordingDir")
 
@@ -111,9 +110,22 @@ if __name__ == "__main__":
 		myMissionRecord.recordObservations()
 		myMissionRecord.recordCommands()
 
-	# Create agent to run all the missions:
 	if recording:
 		myMissionRecord.setDestination(recordingsDirectory + "//" + "Mission_" + str(i) + ".tgz")
+
+	return myMissionRecord
+
+
+# Create a simple flatworld mission and run an agent on them.
+if __name__ == "__main__":
+	sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)  # flush print output immediately
+
+	# Setup agent host
+	agentHost = getAgentHost()
+	myMission = MalmoPython.MissionSpec(getMissionXML(), True)
+
+	# Optionally, set up a recording
+	myMissionRecord = setupRecording(agentHost)
 
 	# Start the mission:
 	maxRetries = 3
@@ -138,44 +150,51 @@ if __name__ == "__main__":
 		worldState = agentHost.getWorldState()
 
 	print "\nMission running"
+	time.sleep(0.5)		# To allow observations and rendering to become ready
 
 
-
-	# Setup vision handler
-	obsHandler = VisionHandler(CUBE_SIZE)
+	# Setup vision handler, controller, etc
+	visionHandler = VisionHandler(CUBE_SIZE)
+	controller = Controller(agentHost)
 
 	# Mission loop:
 	while worldState.is_mission_running:
 		if worldState.number_of_observations_since_last_state > 0:
+			# Get observation info
 			msg = worldState.observations[-1].text
-			observations = json.loads(msg)
-			pitch = observations["Pitch"]
-			yaw = observations["Yaw"]
-
-			startTime = time.time()
-			obsHandler.updateFromObservation(observations[CUBE_OBS])
+			observation = json.loads(msg)
+			pitch = observation["Pitch"]
+			yaw = observation["Yaw"]
 
 			# TODO: Figure out how to know if the player is crouching or not...
 			playerIsCrouching = False
+			lookAt = getLookAt(observation, playerIsCrouching)
 
-			# We need the eye position for filtering and to determine lookAt vector
-			x, y, z = observations["XPos"], observations["YPos"], observations["ZPos"]
-			y += PLAYER_EYES_CROUCHING if playerIsCrouching else PLAYER_EYES
-			playerEyes = np.array([x, y, z])
-
-			# Get the vector pointing from the eyes to the thing/block we're looking at
-			lineOfSight = observations["LineOfSight"]
-			block = np.array([lineOfSight["x"], lineOfSight["y"], lineOfSight["z"]])
-			temp = block - playerEyes
-			lookAt = getNormalizedVector(temp)
-
-			obsHandler.filterOccluded(lookAt, playerIsCrouching)
-			duration = time.time() - startTime
-			# print "Handling vision took {} ms!".format(duration)
+			# Update vision and filter occluded blocks
+			controller.update(observation)
+			visionHandler.updateFromObservation(observation[CUBE_OBS])
+			visionHandler.filterOccluded(lookAt, playerIsCrouching)
+			playerPos = getPlayerPos(observation)
 
 			# Print all the blocks that we can see
-			print "blocks around us: \n{}".format(obsHandler.matrix)
-			agentHost.sendCommand("move 1")
+			print "blocks around us: \n{}".format(visionHandler.matrix)
+
+			# Look for wood
+			woodPositions = visionHandler.findWood()
+			print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
+
+			if woodPositions == []:
+				# Shit, no wood visible/in range... keep moving then
+				print "No wood in range!"
+				agentHost.sendCommand("move 1")
+			else:
+				# Walk to the first wood block
+				realWoodPos = playerPos + woodPositions[0]
+				print "Wood found at relative position {} and absolute position {}".format(
+					woodPositions[0], realWoodPos)
+				controller.lookAtHorizontally(realWoodPos)
+				agentHost.sendCommand("move 1")
+
 
 		for error in worldState.errors:
 			print "Error:", error.text

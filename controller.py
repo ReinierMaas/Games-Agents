@@ -6,22 +6,9 @@
 # observations.get("Yaw", 0)
 
 import MalmoPython
+import numpy as np
 
 from math import *
-
-def shortAngle(angle1, angle2):
-	""" Returns shortest signed angle from angle1 to angle2 in degrees. """
-	x, y = radians(a1), radians(a2)
-	a = atan2(sin(x - y), cos(x - y))
-	return degrees(a)
-
-def distanceH(vector1, vector2):
-	""" Returns horizontal distance between 2 vectors. """
-	x1, z1 = vector1[0], vector1[2]
-	x2, z2 = vector2[0], vector2[2]
-	dx = x1 - x2
-	dz = z1 - z2
-	return sqrt(dx**2 + dz**2)
 
 
 class Controller(object):
