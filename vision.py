@@ -47,8 +47,8 @@ class VisionHandler(object):
 		self.matrix = np.zeros((self.realSize, self.realSize, self.realSize),
 			dtype="|S25")
 
-		self._setupVisibilityMatrix()
-		self._setupVisibleBlockList()
+		self.__setupVisibilityMatrix()
+		self.__setupVisibleBlockList()
 
 
 	def updateFromObservation(self, cubeObservation):
@@ -118,10 +118,10 @@ class VisionHandler(object):
 		return self.findBlocks(BLOCK_WOOD)
 
 
-	def _setupVisibilityMatrix(self):
+	def __setupVisibilityMatrix(self):
 		self.visible = np.zeros((self.realSize, self.realSize, self.realSize), dtype=bool)
 
-	def _fixDefaultVisibility(self):
+	def __fixDefaultVisibility(self):
 		""" We can always "see" the 2 blocks where the player is standing """
 		self.visible[self.center, self.center, self.center] = True
 		self.visible[self.center, self.center + 1, self.center] = True
@@ -151,7 +151,7 @@ class VisionHandler(object):
 		self.updateVisibleBlockList()
 
 
-	def _setupVisibleBlockList(self):
+	def __setupVisibleBlockList(self):
 		"""
 		Used to setup the list of visible blocks that can be used by FOV
 		filtering and raytracing.
@@ -164,7 +164,7 @@ class VisionHandler(object):
 
 	def updateVisibleBlockList(self):
 		""" Updates the list of visible blocks """
-		self._setupVisibleBlockList()
+		self.__setupVisibleBlockList()
 
 		for x in range(-self.size, self.size + 1):
 			for y in range(-self.size, self.size + 1):
@@ -173,7 +173,7 @@ class VisionHandler(object):
 						self.addVisibleBlock(Block(x, y, z))
 
 
-	def _filterCoarse(self):
+	def __filterCoarse(self):
 		"""
 		Determines the visibility matrix by doing a fast, coarse filtering of
 		non-visible blocks, by looking at transparant blocks around the player
@@ -197,7 +197,7 @@ class VisionHandler(object):
 			for i in range(42):
 				print "I CAN'T BREEEAATTHEEE!! HELP ME I'M FUCKING SUFFOCATING!!!"
 
-		self._fixDefaultVisibility()
+		self.__fixDefaultVisibility()
 
 		# We basically expand our search for visible blocks outward from where
 		# the player is standing, and check adjacant blocks to see if they are
@@ -277,7 +277,7 @@ class VisionHandler(object):
 				break
 
 
-	def _filterFOV(self, lookAt):
+	def __filterFOV(self, lookAt):
 		""" Filters out all non-visible blocks that the agent cannot see """
 
 		# Convert all currently visible blocks to blocks of triangles. Also, we
@@ -315,7 +315,7 @@ class VisionHandler(object):
 					# print "\t block is NOT visible!"
 					self.setInvisible(x, y, z)
 
-		self._fixDefaultVisibility()
+		self.__fixDefaultVisibility()
 
 
 	def _filterRayTraced(self, lookAt, playerIsCrouching = False):
@@ -356,7 +356,7 @@ class VisionHandler(object):
 
 		# The visibility matrix is reset because we only mark the visible blocks
 		# as visible, and dont filter out visible blocks
-		self._setupVisibilityMatrix()
+		self.__setupVisibilityMatrix()
 
 		# Generate all the rays and trace them
 		for y in range(numY):
@@ -415,7 +415,7 @@ class VisionHandler(object):
 							# marked as visible
 							break
 
-		self._fixDefaultVisibility()
+		self.__fixDefaultVisibility()
 
 
 	def filterOccluded(self, lookAt, playerIsCrouching = False):
@@ -424,14 +424,14 @@ class VisionHandler(object):
 		lookAt = getNormalizedVector(lookAt)
 
 		# First we setup the visibility matrix, and do coarse filtering
-		self._setupVisibilityMatrix()
-		self._setupVisibleBlockList()	# Used for _filterFOV and _filterRayTraced
-		self._filterCoarse()
+		self.__setupVisibilityMatrix()
+		self.__setupVisibleBlockList()	# Used for __filterFOV and _filterRayTraced
+		self.__filterCoarse()
 		self.applyVisibility()
 
 		# Then we do more advanced filtering based on the FOV of the player
 		# oldVisible = np.copy(self.visible)
-		# self._filterFOV(lookAt)
+		# self.__filterFOV(lookAt)
 		# difference = (oldVisible != self.visible)
 		# print "filterFOV changed something = {}".format(difference.any())
 		# self.applyVisibility()

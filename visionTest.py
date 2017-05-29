@@ -49,7 +49,7 @@ def getMissionXML():
 			<AgentSection mode="Creative">
 				<Name>YourMom</Name>
 				<AgentStart>
-					<Placement x="0.5" y="7.0" z="0.5" yaw="90" />
+					<Placement x="0.5" y="7.0" z="1.5" yaw="90" pitch="10" />
 				</AgentStart>
 
 				<AgentHandlers>
@@ -163,8 +163,8 @@ if __name__ == "__main__":
 			# Get observation info
 			msg = worldState.observations[-1].text
 			observation = json.loads(msg)
-			pitch = observation["Pitch"]
-			yaw = observation["Yaw"]
+			pitch = observation[u"Pitch"]
+			yaw = observation[u"Yaw"]
 
 			# TODO: Figure out how to know if the player is crouching or not...
 			playerIsCrouching = False
@@ -189,12 +189,11 @@ if __name__ == "__main__":
 				agentHost.sendCommand("move 1")
 			else:
 				# Walk to the first wood block
-				realWoodPos = playerPos + woodPositions[0] + MALMO_OFFSET
+				realWoodPos = getRealPosFromRelPos(playerPos, woodPositions[0])
 				print "Wood found at relative position {} and absolute position {}".format(
 					woodPositions[0], realWoodPos)
 				controller.lookAtHorizontally(realWoodPos)
 				agentHost.sendCommand("move 1")
-
 
 		for error in worldState.errors:
 			print "Error:", error.text
