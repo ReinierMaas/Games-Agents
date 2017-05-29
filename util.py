@@ -33,6 +33,11 @@ def getNormalizedVector(vector):
 		return vector
 
 
+def getVectorDistance(vector1, vector2):
+	""" Returns the Euclidean distance between 2 vectors. """
+	return sqrt(fsum([(element1 - element2)**2 for element1, element2 in zip(vector1, vector2)]))
+
+
 def getRotationPitch(pitch):
 	""" Returns the 3D rotation matrix for the given pitch. """
 	radianPitch = radians(pitch)		# Needed for cos() and sin()

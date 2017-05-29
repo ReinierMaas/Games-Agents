@@ -46,7 +46,7 @@ def getMissionXML():
 				</ServerHandlers>
 			</ServerSection>
 
-			<AgentSection mode="Creative">
+			<AgentSection mode="Survival">
 				<Name>YourMom</Name>
 				<AgentStart>
 					<Placement x="0.5" y="7.0" z="1.5" yaw="90" pitch="10" />
@@ -193,7 +193,22 @@ if __name__ == "__main__":
 				print "Wood found at relative position {} and absolute position {}".format(
 					woodPositions[0], realWoodPos)
 				controller.lookAtHorizontally(realWoodPos)
-				agentHost.sendCommand("move 1")
+
+				# If we are standing close enough to the wood block, start
+				# punching it, which means we are less than 1 block away (aka,
+				# we are standing right in front of the wood block)
+				# TODO: Use line of sight stuff
+				distance = getVectorDistance(getRealPos(playerPos), realWoodPos)
+				print "distance = {}".format(distance)
+
+				if distance <= sqrt(3):
+					print "PUNCH ALL THE TREES!!!"
+					agentHost.sendCommand("attack 1")
+					agentHost.sendCommand("move 0")
+				else:
+					# Keep moving forward until we reach it
+					agentHost.sendCommand("move 1")
+
 
 		for error in worldState.errors:
 			print "Error:", error.text
