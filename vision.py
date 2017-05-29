@@ -27,6 +27,20 @@ TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 	"lever", "pressure_plate", "redstone_torch", "button", "trapdoor", "tripwire",
 	"tripwire_hook", "redstone", "rail", "beacon", "cauldron", "brewing_stand"]
 
+BLOCK_WOOD = "log"
+
+
+# Note for future use about pitch and yaw
+# Pitch = angle in the range (-180, 180] (left/right rotate)
+# 	-180 or 180 		facing north (towards negative z)
+# 	90 					facing west  (towards negative x)
+# 	0					facing south (towards positive z)
+# 	-90					facing east  (towards positive x)
+# Yaw = angle in the range [-90, 90] (up/down)
+#	0 					horizontal, parallel to the ground
+# 	-90					vertical, looking to the sky
+#	90					vertical, looking to the ground
+
 
 def getVectorLength(vector):
 	""" Returns the length of the vector. """
@@ -62,16 +76,12 @@ class Ray(object):
 		super(Ray, self).__init__()
 		self.origin = origin
 		self.direction = direction
-		self.invDirection = 1.0 / direction
 
 	def getOrigin(self):
 		return self.origin
 
 	def getDirection(self):
 		return self.direction
-
-	def getInvDirection(self):
-		return self.invDirection
 
 	def getPosition(self, t):
 		""" Returns the position of the ray for the given t value. """
@@ -140,7 +150,6 @@ class Block(object):
 		Initializes the block with the relative x, y, z coordinates to the
 		player, and constructs 6 triangles for the 3 closest perpendicular faces.
 		"""
-
 		self.x = relX
 		self.y = relY
 		self.z = relZ
@@ -209,7 +218,7 @@ class Block(object):
 	def intersect(self, ray, doEarlyOut = True):
 		"""
 		Returns t value if ray intersects the block, else None. Optionally,
-		doEarlyOut can be set to False to return the lowest t value, if any.
+		doEarlyOut can be set to False to return the lowest valid t value, if any.
 		"""
 
 		lowestT = 1e38
@@ -241,6 +250,11 @@ class VisionHandler(object):
 		self.realSize = size * 2 + 1
 		self.numElements = self.realSize**3
 		self.center = size
+		self.matrix = np.zeros((self.realSize, self.realSize, self.realSize),
+			dtype="|S25")
+
+		self._setupVisibilityMatrix()
+		self._setupVisibleBlockList()
 
 
 	def updateFromObservation(self, cubeObservation):
@@ -281,11 +295,33 @@ class VisionHandler(object):
 		Returns empty string if -size > x, y, z or x, y, z > size (out of bounds).
 		This also corresponds to "we don't know whats there".
 		"""
-
 		if self.areValidRelCoords(relX, relY, relZ):
 			return self.matrix[self.center + relX, self.center + relY, self.center + relZ]
 		else:
 			return ""
+
+	def isBlock(self, relX, relY, relZ, block):
+		""" Returns True/False if the given block is at the given relative position. """
+		return self.getBlockAtRelPos(relX, relY, relZ) == block
+
+	def findBlocks(self, block):
+		"""
+		Returns a list of [x, y, z] coordinates as a list of numpy arrays, where
+		the given block is. An empty list is returned if the block cant be found.
+		"""
+		coordinates = []
+
+		for block in self.visibleBlocks:
+			x, y, z = block.getX(), block.getY(), block.getZ()
+
+			if isBlock(x, y, z, block):
+				coordinates.append(np.array([x, y, z]))
+
+		return coordinates
+
+	def findWood(self, block):
+		""" See findBlocks function, returns coordinates of wood/log. """
+		return self.findBlocks(BLOCK_WOOD)
 
 
 	def _setupVisibilityMatrix(self):
@@ -318,17 +354,29 @@ class VisionHandler(object):
 					if not self.isVisible(x, y, z):
 						self.matrix[self.center + x, self.center + y, self.center + z] = ""
 
+		self.updateVisibleBlockList()
 
-	def _setupBlockList(self):
+
+	def _setupVisibleBlockList(self):
 		"""
 		Used to setup the list of visible blocks that can be used by FOV
 		filtering and raytracing.
 		"""
 
-		self.blocks = []
+		self.visibleBlocks = []
 
 	def addVisibleBlock(self, block):
-		self.blocks.append(block)
+		self.visibleBlocks.append(block)
+
+	def updateVisibleBlockList(self):
+		""" Updates the list of visible blocks """
+		self._setupVisibleBlockList()
+
+		for x in range(-self.size, self.size + 1):
+			for y in range(-self.size, self.size + 1):
+				for z in range(-self.size, self.size + 1):
+					if self.isVisible(x, y, z):
+						self.addVisibleBlock(Block(x, y, z))
 
 
 	def _filterCoarse(self):
@@ -379,7 +427,8 @@ class VisionHandler(object):
 						if self.isVisible(x, y, z):
 							continue
 
-						# Check 6 surrounding blocks if they're visible.
+						# Check 6 surrounding blocks if they're visible, first
+						# we check left and right blocks (x direction)
 						if x + 1 < self.size and self.isVisible(x + 1, y, z) and \
 						self.getBlockAtRelPos(x + 1, y, z) in TRANSPARANT_BLOCKS:
 
@@ -394,7 +443,7 @@ class VisionHandler(object):
 							changedSomething = True
 							continue
 
-
+						# Then we check above and below blocks (y direction)
 						if y + 1 < self.size and self.isVisible(x, y + 1, z) and \
 						self.getBlockAtRelPos(x, y + 1, z) in TRANSPARANT_BLOCKS:
 
@@ -409,7 +458,7 @@ class VisionHandler(object):
 							changedSomething = True
 							continue
 
-
+						# And finally check front and back blocks (z direction)
 						if z + 1 < self.size and self.isVisible(x, y, z + 1) and \
 						self.getBlockAtRelPos(x, y, z + 1) in TRANSPARANT_BLOCKS:
 
@@ -424,24 +473,21 @@ class VisionHandler(object):
 							changedSomething = True
 							continue
 
-						# This block is likely not visible!
-						# print "block x = {}, y = {}, z = {} is not visible!".format(x, y, z)
+						# If no nieighbors are visible, this block is likely not
+						# visible either.
 						self.setInvisible(x, y, z)
 
 			iterations += 1
-			# print "iteration: {}".format(iterations)
-			# print "visible = {}".format(visible)
 
 			if not changedSomething:
-				# print "Stopping after {} iterations since nothing changed!".format(iterations)
 				break
+
 
 	def _filterFOV(self, lookAt):
 		""" Filters out all non-visible blocks that the agent cannot see """
 
 		# Convert all currently visible blocks to blocks of triangles. Also, we
 		# do a simple angle test with blocks that are absolutely out of view
-		lookAt = getNormalizedVector(lookAt)
 
 		# TODO: Fix fov calculation into correct one that minecraft uses...
 		fov = radians(FOV)
@@ -449,36 +495,31 @@ class VisionHandler(object):
 		# print "lookAt = {}, fov = {}\n".format(lookAt, fov)
 		print "coarse filtered matrix = \n{}".format(self.matrix)
 
-		for x in range(-self.size, self.size + 1):
-			for y in range(-self.size, self.size + 1):
-				for z in range(-self.size, self.size + 1):
-					# print "block x = {}, y = {}, z = {} ({})".format(
-					# 	x, y, z, self.getBlockAtRelPos(x, y, z))
-					# Skip all non-visible blocks
-					if self.isVisible(x, y, z):
-						block = Block(x, y, z)
+		for block in self.visibleBlocks:
+			x, y, z = block.getX(), block.getY(), block.getZ()
 
-						# Check dot product visibility for visible blocks, aka
-						# angle test for every corner of the block. If one of
-						# the corners is visible, then the block is considered
-						# visible as well.
-						cornerVisible = False
-						corners = block.getCorners()
+			# Skip all non-visible blocks
+			if self.isVisible(x, y, z):
+				# Check dot product visibility for visible blocks, aka
+				# angle test for every corner of the block. If one of
+				# the corners is visible, then the block is considered
+				# visible as well.
+				cornerVisible = False
+				corners = block.getCorners()
 
-						for i in range(len(corners)):
-							cornerDir = getNormalizedVector(corners[i])
-							angle = acos(np.dot(cornerDir, lookAt))
-							# print "corner {}, angle = {}".format(i, angle)
+				for i in range(len(corners)):
+					cornerDir = getNormalizedVector(corners[i])
+					angle = acos(np.dot(cornerDir, lookAt))
+					# print "corner {}, angle = {}".format(i, angle)
 
-							if angle >= -fov and angle <= fov:
-								cornerVisible = True
-								self.addVisibleBlock(block)
-								# print "\tblock is visible!"
-								break
+					if angle >= -fov and angle <= fov:
+						cornerVisible = True
+						# print "\tblock is visible!"
+						break
 
-						if not cornerVisible:
-							# print "\t block is NOT visible!"
-							self.setInvisible(x, y, z)
+				if not cornerVisible:
+					# print "\t block is NOT visible!"
+					self.setInvisible(x, y, z)
 
 		self._fixDefaultVisibility()
 
@@ -542,7 +583,7 @@ class VisionHandler(object):
 				intersectedBlockTypes = []
 				intersectionT = []
 
-				for block in self.blocks:
+				for block in self.visibleBlocks:
 					# Don't do early out, since we need the closest t for sorting...
 					t = block.intersect(ray, False)
 
@@ -582,13 +623,15 @@ class VisionHandler(object):
 	def filterOccluded(self, lookAt, playerIsCrouching = False):
 		""" Filters out all occluded blocks that the agent cannot see. """
 
+		lookAt = getNormalizedVector(lookAt)
+
 		# First we setup the visibility matrix, and do coarse filtering
 		self._setupVisibilityMatrix()
+		self._setupVisibleBlockList()	# Used for _filterFOV and _filterRayTraced
 		self._filterCoarse()
 		self.applyVisibility()
 
 		# Then we do more advanced filtering based on the FOV of the player
-		self._setupBlockList()	# Used for _filterFOV and _filterRayTraced
 		# oldVisible = np.copy(self.visible)
 		# self._filterFOV(lookAt)
 		# difference = (oldVisible != self.visible)
@@ -602,7 +645,7 @@ class VisionHandler(object):
 		# print "filterRayTraced changed something = {}".format(difference.any())
 		# self.applyVisibility()
 
-		print self.matrix
+		# print self.matrix
 
 
 
@@ -733,38 +776,21 @@ if __name__ == "__main__":
 
 	print "\nMission running"
 
-	# Mission loop:
+
+
+	# Setup vision handler
 	obsHandler = VisionHandler(CUBE_SIZE)
 
-	# For later on
-	steppedLeft = False
-	movedFinal = False
-
+	# Mission loop:
 	while worldState.is_mission_running:
 		if worldState.number_of_observations_since_last_state > 0:
 			msg = worldState.observations[-1].text
 			observations = json.loads(msg)
-
-			# print("msg = {}".format(msg))
-			# print("obs = {}".format(observations))
-			startTime = time.time()
-
-			obsHandler.updateFromObservation(observations[CUBE_OBS])
-			# print "cube = {}".format(observations[CUBE_OBS])
-			# print "matrix1 = {}".format(obsHandler.matrix)
-
 			pitch = observations["Pitch"]
 			yaw = observations["Yaw"]
 
-			# Pitch = angle in the range (-180, 180] (left/right rotate)
-			# 	-180 or 180 		facing north (towards negative z)
-			# 	90 					facing west  (towards negative x)
-			# 	0					facing south (towards positive z)
-			# 	-90					facing east  (towards positive x)
-			# Yaw = angle in the range [-90, 90] (up/down)
-			#	0 					horizontal, parallel to the ground
-			# 	-90					vertical, looking to the sky
-			#	90					vertical, looking to the ground
+			startTime = time.time()
+			obsHandler.updateFromObservation(observations[CUBE_OBS])
 
 			# TODO: Figure out how to know if the player is crouching or not...
 			playerIsCrouching = False
@@ -779,22 +805,14 @@ if __name__ == "__main__":
 			block = np.array([lineOfSight["x"], lineOfSight["y"], lineOfSight["z"]])
 			temp = block - playerEyes
 			lookAt = getNormalizedVector(temp)
-			print "player eyes = {}, block = {}, temp = {}, final lookAt = {}".format(
-				playerEyes, block, temp, lookAt)
 
 			obsHandler.filterOccluded(lookAt, playerIsCrouching)
-			# print "\"visible\" matrix = {}".format(obsHandler.matrix)
-
 			duration = time.time() - startTime
 			# print "Handling vision took {} ms!".format(duration)
 
-			# Check if we have reached the position in front of the tree
-			# Ugh, floating point comparisons...
-			if ceil(x) == -3 and int(y) == 7 and ceil(z) == 1:
-				print "Reached pos! x = {}, y = {}, z = {}\n\n\n".format(x, y, z)
-				agentHost.sendCommand("move 0")
-			else:
-				agentHost.sendCommand("move 1")
+			# Print all the blocks that we can see
+			print "blocks around us: \n{}".format(obsHandler.matrix)
+			agentHost.sendCommand("move 1")
 
 		for error in worldState.errors:
 			print "Error:", error.text
