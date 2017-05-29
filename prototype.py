@@ -45,7 +45,7 @@ def getMissionXML():
 				</ServerHandlers>
 			</ServerSection>
 
-			<AgentSection mode="Creative">
+			<AgentSection mode="Survival">
 				<Name>YourMom</Name>
 				<AgentStart>
 					<Placement x="1.5" y="7.0" z="13.5" yaw="90" pitch="10" />
@@ -142,11 +142,24 @@ def onFindTree(navigator):
 def onCutTree():
 	pass
 
-def cutTreeAction():
+def cutTreeAction(navigator):
 	global doneCutting
 	global startTime
-	if time.time() - startTime > 20:
-		doneCutting = True
+	navigator.controller.setYaw(90)
+	navigator.controller.setPitch(45)
+	navigator.controller.agent.sendCommand("attack 1")
+	time.sleep(5)
+	navigator.controller.setPitch(75)
+	time.sleep(5)
+	navigator.controller.setPitch(-20)
+	time.sleep(1.5)
+	navigator.controller.setPitch(-40)
+	time.sleep(5)
+	navigator.controller.setPitch(-54)
+	time.sleep(5)
+	navigator.controller.setPitch(10)
+	navigator.controller.agent.sendCommand("attack 0")
+	doneCutting = True
 
 def onGoBack(navigator):
 	route = findRouteByKey(navigator.lastWaypoint, "Origin")
@@ -163,7 +176,7 @@ def initMachine(stateMachine, navigator):
 	stateMachine.addTransition("findTree", "cutTree", lambda: navigator.targetReached, lambda: onCutTree())
 	stateMachine.addTransition("cutTree", "goBack", lambda: doneCutting, lambda: onGoBack(navigator))
 
-	stateMachine.actions["cutTree"] = cutTreeAction
+	stateMachine.actions["cutTree"] = lambda: cutTreeAction(navigator)
 
 # --- Main --- #
 
