@@ -1,26 +1,24 @@
 # Code for filtering non-visible blocks based on a given observation and small tests
 
 import MalmoPython
-import os
-import random
-import sys
-import time
-import json
-import copy
-import errno
-from math import ceil, radians, degrees, acos, tan, sqrt, fsum
-import xml.etree.ElementTree
 import numpy as np
 
-# Configuration for observation cube, with name in XML/JSON and size in 1 direction
-CUBE_OBS = "cube10"
-CUBE_SIZE = 2
+from util import *
+from math import radians, degrees, acos, tan
+
+
+
+################################################################################
+# Configuration for observation cube and vision handling
+################################################################################
+CUBE_OBS = "cube10"				# Name that will be used in XML/JSON
+CUBE_SIZE = 2					# Size in 1 direction
 
 PLAYER_EYES = 1.625  			# Player's eyes are at y = 1.625 blocks high
 PLAYER_EYES_CROUCHING = 1.5		# Player's eyes are at y = 1.5 when crouching
 FOV = 70						# Default Field of View for Minecraft
 
-
+# This is a list of all transparant blocks that the agent can see through.
 TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 	"torch", "ladder", "fence", "iron_bars", "glass_pane", "vines", "lily_pad",
 	"sign", "item_frame", "flower_pot", "skull", "armor_stand", "banner", "tall_grass",
@@ -30,212 +28,10 @@ TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 BLOCK_WOOD = "log"
 
 
-# Note for future use about pitch and yaw
-# Pitch = angle in the range (-180, 180] (left/right rotate)
-# 	-180 or 180 		facing north (towards negative z)
-# 	90 					facing west  (towards negative x)
-# 	0					facing south (towards positive z)
-# 	-90					facing east  (towards positive x)
-# Yaw = angle in the range [-90, 90] (up/down)
-#	0 					horizontal, parallel to the ground
-# 	-90					vertical, looking to the sky
-#	90					vertical, looking to the ground
 
-
-def getVectorLength(vector):
-	""" Returns the length of the vector. """
-
-	# fsum is more accurate and uses Kahan summation along with IEEE-754 fp stuff
-	return sqrt(fsum([element * element for element in vector]))
-
-def getNormalizedVector(vector):
-	""" Returns the normalized vector. """
-	length = getVectorLength(vector)
-
-	if length != 0.0:
-		return vector / length
-	else:
-		return vector
-
-
-class Ray(object):
-	"""
-	Helper class to handle Rays that are used for ray-tracing with minecraft
-	blocks, to perform realistic visibility tests.
-	"""
-
-	# Some constants to use for ray-tracing
-	MAX_T = 1e34
-	EPSILON_T = 0.0001
-
-	def __init__(self, origin, direction):
-		"""
-		Origin and direction should be 3D numpy vectors, and direction must be
-		normalized.
-		"""
-		super(Ray, self).__init__()
-		self.origin = origin
-		self.direction = direction
-
-	def getOrigin(self):
-		return self.origin
-
-	def getDirection(self):
-		return self.direction
-
-	def getPosition(self, t):
-		""" Returns the position of the ray for the given t value. """
-		return self.origin + t * self.direction
-
-
-class Triangle(object):
-	"""
-	Helper class to handle Triangles that are used for ray-tracing with minecraft
-	blocks, to perform realistic visibility tests.
-	"""
-	INTERSECTION_EPSILON = 0.000001
-
-	def __init__(self, normal, vertices):
-		"""
-		Please use 3D numpy vectors for every vector. Note that vertices should
-		be a list or numpy array of three, 3D numpy vectors, and normal must be
-		a normalized vector.
-		"""
-		super(Triangle, self).__init__()
-		self.normal = normal
-		self.vertices = np.copy(vertices)
-		self.edge1 = vertices[1] - vertices[0]
-		self.edge2 = vertices[2] - vertices[0]
-
-
-	def intersect(self, ray):
-		"""
-		Checks if the given ray intersects this triangle, and if so, returns the
-		corresponding t value. If not, None is returned.
-		"""
-
-		# Calculate if the ray can actually intersect the triangle (dot product)
-		p = np.cross(ray.getDirection(), self.edge2)
-		det = np.dot(self.edge1, p)
-
-		if det > -INTERSECTION_EPSILON and det < INTERSECTION_EPSILON:
-			return None
-
-		# Possible intersection, calculate bary-centric coordinates
-		inverseDet = 1.0 / det
-		temp = ray.getOrigin() - self.vertices[0]
-		u = np.dot(temp, p) * inverseDet
-
-		if u < 0.0 or u > 1.0:
-			return None
-
-		q = np.cross(temp, self.edge1)
-		v = np.dot(ray.getDirection(), q) * inverseDet
-
-		if v < 0.0 or u + v > 1.0:
-			return None
-
-		# Calculate t value since we have a valid intersection
-		t = np.dot(edge2, q) * inverseDet
-		return t
-
-
-class Block(object):
-	"""
-	Helper class to handle Blocks that are used for ray-tracing with minecraft
-	blocks, to perform realistic visibility tests.
-	"""
-	def __init__(self, relX, relY, relZ):
-		"""
-		Initializes the block with the relative x, y, z coordinates to the
-		player, and constructs 6 triangles for the 3 closest perpendicular faces.
-		"""
-		self.x = relX
-		self.y = relY
-		self.z = relZ
-
-		# Get all corners of this block, labeled clockwise...
-		self.corners = [
-			np.array([relX + 1, relY + 1, relZ], dtype=float),	# "Top" corners
-			np.array([relX + 1, relY + 1, relZ + 1], dtype=float),
-			np.array([relX, relY + 1, relZ + 1],dtype=float),
-			np.array([relX, relY + 1, relZ], dtype=float),
-
-			np.array([relX + 1, relY, relZ], dtype=float),		# "Bottom" corners
-			np.array([relX + 1, relY, relZ + 1], dtype=float),
-			np.array([relX, relY, relZ + 1], dtype=float),
-			np.array([relX, relY, relZ], dtype=float),
-		]
-
-		# TODO: Double check normals/vertices again... (seem ok now...) (check again)
-		# Get closest and furthest face orthogonal to x direction in z, y plane
-		normalX1 = getNormalizedVector(np.array([-relX, relY, relZ]))
-		normalX2 = getNormalizedVector(np.array([relX, relY, relZ]))
-
-		# Create 4 triangles for those 2 faces
-		faceX11 = Triangle(normalX1, [self.corners[3], self.corners[2], self.corners[6]])
-		faceX12 = Triangle(normalX1, [self.corners[3], self.corners[6], self.corners[7]])
-		faceX21 = Triangle(normalX2, [self.corners[0], self.corners[4], self.corners[5]])
-		faceX22 = Triangle(normalX2, [self.corners[0], self.corners[5], self.corners[1]])
-
-		# Get lowest and highest face orthogonal to y direction in x, z plane
-		normalY1 = getNormalizedVector(np.array([relX, -relY, relZ]))
-		normalY2 = getNormalizedVector(np.array([relX, relY, relZ]))
-
-		faceY11 = Triangle(normalY1, [self.corners[4], self.corners[5], self.corners[6]])
-		faceY12 = Triangle(normalY1, [self.corners[4], self.corners[6], self.corners[7]])
-		faceY21 = Triangle(normalY2, [self.corners[0], self.corners[1], self.corners[2]])
-		faceY22 = Triangle(normalY2, [self.corners[0], self.corners[2], self.corners[3]])
-
-		# Get closest and furthest face orthogonal to z direction in x, y plane
-		normalZ1 = getNormalizedVector(np.array([relX, relY, -relZ]))
-		normalZ2 = getNormalizedVector(np.array([relX, relY, relZ]))
-
-		faceZ11 = Triangle(normalZ1, [self.corners[1], self.corners[5], self.corners[6]])
-		faceZ12 = Triangle(normalZ1, [self.corners[1], self.corners[6], self.corners[2]])
-		faceZ21 = Triangle(normalZ2, [self.corners[0], self.corners[3], self.corners[7]])
-		faceZ22 = Triangle(normalZ2, [self.corners[0], self.corners[7], self.corners[4]])
-
-		# Collect all of the triangles
-		self.triangles = [faceX11, faceX12, faceX21, faceX22,
-			faceY11, faceY12, faceY21, faceY22,
-			faceZ11, faceZ12, faceZ21, faceZ22]
-
-
-	def getX(self):
-		return self.x
-
-	def getY(self):
-		return self.y
-
-	def getZ(self):
-		return self.z
-
-	def getCorners(self):
-		return self.corners
-
-
-	def intersect(self, ray, doEarlyOut = True):
-		"""
-		Returns t value if ray intersects the block, else None. Optionally,
-		doEarlyOut can be set to False to return the lowest valid t value, if any.
-		"""
-
-		lowestT = 1e38
-
-		for triangle in self.triangles:
-			t = triangle.intersect(ray)
-
-			if doEarlyOut:
-				if t > 0.0 and t is not None:
-					return t
-			else:
-				if t > 0.0 and t < lowestT:
-					lowestT = t
-
-		return lowestT if lowestT is not 1e38 else None
-
-
+################################################################################
+# Main Vision handling class
+################################################################################
 
 class VisionHandler(object):
 	"""
@@ -653,174 +449,185 @@ class VisionHandler(object):
 
 
 
-def getMissionXML():
-	""" Generates mission XML with flat world and 1 crappy tree. """
-	return """<?xml version="1.0" encoding="UTF-8" ?>
-		<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-			<About>
-				<Summary>Test filtering of visible blocks</Summary>
-			</About>
+################################################################################
+# Classes for raytracing, includes Ray, Triangle and Block class
+################################################################################
 
-			<ServerSection>
-				<ServerInitialConditions>
-					<Time>
-						<StartTime>1000</StartTime>
-						<AllowPassageOfTime>true</AllowPassageOfTime>
-					</Time>
+class Ray(object):
+	"""
+	Helper class to handle Rays that are used for ray-tracing with minecraft
+	blocks, to perform realistic visibility tests.
+	"""
 
-					<Weather>clear</Weather>
-				</ServerInitialConditions>
+	# Some constants to use for ray-tracing
+	MAX_T = 1e34
+	EPSILON_T = 0.0001
 
-				<ServerHandlers>
-					<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />
+	def __init__(self, origin, direction):
+		"""
+		Origin and direction should be 3D numpy vectors, and direction must be
+		normalized.
+		"""
+		super(Ray, self).__init__()
+		self.origin = origin
+		self.direction = direction
 
-					<DrawingDecorator>
-						<DrawSphere x="-5" y="11" z="0" radius="3" type="leaves" />
-						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="11" z2="0" type="log" />
-						<DrawLine x1="-6" y1="7" z1="-1" x2="-6" y2="7" z2="1" type="stone" />
-						<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
-					</DrawingDecorator>
+	def getOrigin(self):
+		return self.origin
 
-					<ServerQuitWhenAnyAgentFinishes />
-					<ServerQuitFromTimeUp timeLimitMs="600000" description="Ran out of time." />
-				</ServerHandlers>
-			</ServerSection>
+	def getDirection(self):
+		return self.direction
 
-			<AgentSection mode="Creative">
-				<Name>YourMom</Name>
-				<AgentStart>
-					<Placement x="0.5" y="7.0" z="0.5" yaw="90" />
-				</AgentStart>
-
-				<AgentHandlers>
-					<ContinuousMovementCommands />
-					<InventoryCommands />
-					<ObservationFromFullStats />
-					<ObservationFromRay />
-					<ObservationFromHotBar />
-					<ObservationFromGrid>
-						<Grid name="{0}">
-							<min x="-{1}" y="-{1}" z="-{1}"/>
-							<max x="{1}" y="{1}" z="{1}"/>
-						</Grid>
-
-						<Grid name="floor3x3">
-							<min x="-1" y="-1" z="-1"/>
-							<max x="1" y="-1" z="1"/>
-						</Grid>
-					</ObservationFromGrid>
-				</AgentHandlers>
-			</AgentSection>
-		</Mission>""".format(CUBE_OBS, CUBE_SIZE)
+	def getPosition(self, t):
+		""" Returns the position of the ray for the given t value. """
+		return self.origin + t * self.direction
 
 
-# Create a simple flatworld mission and run an agent on them.
-if __name__ == "__main__":
-	sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)  # flush print output immediately
-	agentHost = MalmoPython.AgentHost()
-	agentHost.addOptionalStringArgument("recordingDir,r", "Path to location for saving mission recordings", "")
 
-	try:
-		agentHost.parse(sys.argv )
-	except RuntimeError as e:
-		print "ERROR:", e
-		print agentHost.getUsage()
-		exit(1)
+class Triangle(object):
+	"""
+	Helper class to handle Triangles that are used for ray-tracing with minecraft
+	blocks, to perform realistic visibility tests.
+	"""
+	INTERSECTION_EPSILON = 0.000001
 
-	if agentHost.receivedArgument("help"):
-		print agentHost.getUsage()
-		exit(0)
+	def __init__(self, normal, vertices):
+		"""
+		Please use 3D numpy vectors for every vector. Note that vertices should
+		be a list or numpy array of three, 3D numpy vectors, and normal must be
+		a normalized vector.
+		"""
+		super(Triangle, self).__init__()
+		self.normal = normal
+		self.vertices = np.copy(vertices)
+		self.edge1 = vertices[1] - vertices[0]
+		self.edge2 = vertices[2] - vertices[0]
 
 
-	# Set up a recording
-	numIterations = 3
-	recording = False
-	myMission = MalmoPython.MissionSpec(getMissionXML(), True)
-	myMissionRecord = MalmoPython.MissionRecordSpec()
-	recordingsDirectory = agentHost.getStringArgument("recordingDir")
+	def intersect(self, ray):
+		"""
+		Checks if the given ray intersects this triangle, and if so, returns the
+		corresponding t value. If not, None is returned.
+		"""
 
-	if len(recordingsDirectory) > 0:
-		recording = True
+		# Calculate if the ray can actually intersect the triangle (dot product)
+		p = np.cross(ray.getDirection(), self.edge2)
+		det = np.dot(self.edge1, p)
 
-		try:
-			os.makedirs(recordingsDirectory)
-		except OSError as exception:
-			if exception.errno != errno.EEXIST: # ignore error if already existed
-				raise
+		if det > -INTERSECTION_EPSILON and det < INTERSECTION_EPSILON:
+			return None
 
-		myMissionRecord.recordRewards()
-		myMissionRecord.recordObservations()
-		myMissionRecord.recordCommands()
+		# Possible intersection, calculate bary-centric coordinates
+		inverseDet = 1.0 / det
+		temp = ray.getOrigin() - self.vertices[0]
+		u = np.dot(temp, p) * inverseDet
 
-	# Create agent to run all the missions:
-	if recording:
-		myMissionRecord.setDestination(recordingsDirectory + "//" + "Mission_" + str(i) + ".tgz")
+		if u < 0.0 or u > 1.0:
+			return None
 
-	# Start the mission:
-	maxRetries = 3
+		q = np.cross(temp, self.edge1)
+		v = np.dot(ray.getDirection(), q) * inverseDet
 
-	for retry in range(maxRetries):
-		try:
-			agentHost.startMission(myMission, myMissionRecord)
-			break
-		except RuntimeError as e:
-			if retry == maxRetries - 1:
-				print "Error starting mission:", e
-				exit(1)
+		if v < 0.0 or u + v > 1.0:
+			return None
+
+		# Calculate t value since we have a valid intersection
+		t = np.dot(edge2, q) * inverseDet
+		return t
+
+
+
+class Block(object):
+	"""
+	Helper class to handle Blocks that are used for ray-tracing with minecraft
+	blocks, to perform realistic visibility tests.
+	"""
+	def __init__(self, relX, relY, relZ):
+		"""
+		Initializes the block with the relative x, y, z coordinates to the
+		player, and constructs 6 triangles for the 3 closest perpendicular faces.
+		"""
+		self.x = relX
+		self.y = relY
+		self.z = relZ
+
+		# Get all corners of this block, labeled clockwise...
+		self.corners = [
+			np.array([relX + 1, relY + 1, relZ], dtype=float),	# "Top" corners
+			np.array([relX + 1, relY + 1, relZ + 1], dtype=float),
+			np.array([relX, relY + 1, relZ + 1],dtype=float),
+			np.array([relX, relY + 1, relZ], dtype=float),
+
+			np.array([relX + 1, relY, relZ], dtype=float),		# "Bottom" corners
+			np.array([relX + 1, relY, relZ + 1], dtype=float),
+			np.array([relX, relY, relZ + 1], dtype=float),
+			np.array([relX, relY, relZ], dtype=float),
+		]
+
+		# TODO: Double check normals/vertices again... (seem ok now...) (check again)
+		# Get closest and furthest face orthogonal to x direction in z, y plane
+		normalX1 = getNormalizedVector(np.array([-relX, relY, relZ]))
+		normalX2 = getNormalizedVector(np.array([relX, relY, relZ]))
+
+		# Create 4 triangles for those 2 faces
+		faceX11 = Triangle(normalX1, [self.corners[3], self.corners[2], self.corners[6]])
+		faceX12 = Triangle(normalX1, [self.corners[3], self.corners[6], self.corners[7]])
+		faceX21 = Triangle(normalX2, [self.corners[0], self.corners[4], self.corners[5]])
+		faceX22 = Triangle(normalX2, [self.corners[0], self.corners[5], self.corners[1]])
+
+		# Get lowest and highest face orthogonal to y direction in x, z plane
+		normalY1 = getNormalizedVector(np.array([relX, -relY, relZ]))
+		normalY2 = getNormalizedVector(np.array([relX, relY, relZ]))
+
+		faceY11 = Triangle(normalY1, [self.corners[4], self.corners[5], self.corners[6]])
+		faceY12 = Triangle(normalY1, [self.corners[4], self.corners[6], self.corners[7]])
+		faceY21 = Triangle(normalY2, [self.corners[0], self.corners[1], self.corners[2]])
+		faceY22 = Triangle(normalY2, [self.corners[0], self.corners[2], self.corners[3]])
+
+		# Get closest and furthest face orthogonal to z direction in x, y plane
+		normalZ1 = getNormalizedVector(np.array([relX, relY, -relZ]))
+		normalZ2 = getNormalizedVector(np.array([relX, relY, relZ]))
+
+		faceZ11 = Triangle(normalZ1, [self.corners[1], self.corners[5], self.corners[6]])
+		faceZ12 = Triangle(normalZ1, [self.corners[1], self.corners[6], self.corners[2]])
+		faceZ21 = Triangle(normalZ2, [self.corners[0], self.corners[3], self.corners[7]])
+		faceZ22 = Triangle(normalZ2, [self.corners[0], self.corners[7], self.corners[4]])
+
+		# Collect all of the triangles
+		self.triangles = [faceX11, faceX12, faceX21, faceX22,
+			faceY11, faceY12, faceY21, faceY22,
+			faceZ11, faceZ12, faceZ21, faceZ22]
+
+
+	def getX(self):
+		return self.x
+
+	def getY(self):
+		return self.y
+
+	def getZ(self):
+		return self.z
+
+	def getCorners(self):
+		return self.corners
+
+
+	def intersect(self, ray, doEarlyOut = True):
+		"""
+		Returns t value if ray intersects the block, else None. Optionally,
+		doEarlyOut can be set to False to return the lowest valid t value, if any.
+		"""
+
+		lowestT = 1e38
+
+		for triangle in self.triangles:
+			t = triangle.intersect(ray)
+
+			if doEarlyOut:
+				if t > 0.0 and t is not None:
+					return t
 			else:
-				time.sleep(2)
+				if t > 0.0 and t < lowestT:
+					lowestT = t
 
-	print "Waiting for the mission to start "
-	worldState = agentHost.getWorldState()
-
-	while not worldState.has_mission_begun:
-		sys.stdout.write(".")
-		time.sleep(0.1)
-		worldState = agentHost.getWorldState()
-
-	print "\nMission running"
-
-
-
-	# Setup vision handler
-	obsHandler = VisionHandler(CUBE_SIZE)
-
-	# Mission loop:
-	while worldState.is_mission_running:
-		if worldState.number_of_observations_since_last_state > 0:
-			msg = worldState.observations[-1].text
-			observations = json.loads(msg)
-			pitch = observations["Pitch"]
-			yaw = observations["Yaw"]
-
-			startTime = time.time()
-			obsHandler.updateFromObservation(observations[CUBE_OBS])
-
-			# TODO: Figure out how to know if the player is crouching or not...
-			playerIsCrouching = False
-
-			# We need the eye position for filtering and to determine lookAt vector
-			x, y, z = observations["XPos"], observations["YPos"], observations["ZPos"]
-			y += PLAYER_EYES_CROUCHING if playerIsCrouching else PLAYER_EYES
-			playerEyes = np.array([x, y, z])
-
-			# Get the vector pointing from the eyes to the thing/block we're looking at
-			lineOfSight = observations["LineOfSight"]
-			block = np.array([lineOfSight["x"], lineOfSight["y"], lineOfSight["z"]])
-			temp = block - playerEyes
-			lookAt = getNormalizedVector(temp)
-
-			obsHandler.filterOccluded(lookAt, playerIsCrouching)
-			duration = time.time() - startTime
-			# print "Handling vision took {} ms!".format(duration)
-
-			# Print all the blocks that we can see
-			print "blocks around us: \n{}".format(obsHandler.matrix)
-			agentHost.sendCommand("move 1")
-
-		for error in worldState.errors:
-			print "Error:", error.text
-
-		worldState = agentHost.getWorldState()
-
-	print "\nMission ended!"
+		return lowestT if lowestT is not 1e38 else None
