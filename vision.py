@@ -617,6 +617,10 @@ class VisionHandler(object):
 								hitNonTransparantBlock = True
 								self.setVisible(x, y, z)
 
+							# We can stop now since no other blocks will be
+							# marked as visible
+							break
+
 		self._fixDefaultVisibility()
 
 
