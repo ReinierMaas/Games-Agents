@@ -39,12 +39,12 @@ class Controller(object):
 		currentHotbar = hotbar
 
 
-	def pitch(self, angle):
+	def pitchByAngle(self, angle):
 		""" Pitch by a given angle (approx). """
 		self.setPitch(self.pitch + angle)
 
 
-	def turn(self, angle):
+	def turnByAngle(self, angle):
 		""" Pitch by a given angle (approx). """
 		self.setYaw(self.yaw + angle)
 

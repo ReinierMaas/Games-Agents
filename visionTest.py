@@ -189,7 +189,7 @@ if __name__ == "__main__":
 				agentHost.sendCommand("move 1")
 			else:
 				# Walk to the first wood block
-				realWoodPos = playerPos + woodPositions[0]
+				realWoodPos = playerPos + woodPositions[0] + np.array([-1, 1, 0])
 				print "Wood found at relative position {} and absolute position {}".format(
 					woodPositions[0], realWoodPos)
 				controller.lookAtHorizontally(realWoodPos)

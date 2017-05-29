@@ -9,6 +9,10 @@ PLAYER_EYES = 1.625  			# Player's eyes are at y = 1.625 blocks high
 PLAYER_EYES_CROUCHING = 1.5		# Player's eyes are at y = 1.5 when crouching
 
 
+# Offset in different coordinates between Malmo and Minecraft as can be
+# observed from the debug screen in Minecraft itself (F3)
+MALMO_OFFSET = np.array([-1, 1, 0])
+
 def getVectorLength(vector):
 	""" Returns the length of the vector. """
 
