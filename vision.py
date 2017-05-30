@@ -94,13 +94,15 @@ class VisionHandler(object):
 		This also corresponds to "we don't know whats there".
 		"""
 		if self.areValidRelCoords(relX, relY, relZ):
-			return self.matrix[self.center + relX, self.center + relY, self.center + relZ]
+			return self.matrix[self.center + relY, self.center + relX, self.center + relZ]
 		else:
 			return ""
 
-	def isBlock(self, relX, relY, relZ, block):
+	def isBlock(self, relX, relY, relZ, blockName):
 		""" Returns True/False if the given block is at the given relative position. """
-		return self.getBlockAtRelPos(relX, relY, relZ) == block
+		# print "isBlock: {} {} {}: {}".format(relX, relY, relZ,
+		# 	self.getBlockAtRelPos(relX, relY, relZ))
+		return self.getBlockAtRelPos(relX, relY, relZ) == blockName
 
 	def findBlocks(self, blockName):
 		"""
@@ -128,20 +130,20 @@ class VisionHandler(object):
 	def __fixDefaultVisibility(self):
 		""" We can always "see" the 2 blocks where the player is standing """
 		self.visible[self.center, self.center, self.center] = True
-		self.visible[self.center, self.center + 1, self.center] = True
+		self.visible[self.center + 1, self.center, self.center] = True
 
 
 	def isVisible(self, relX, relY, relZ):
 		""" Returns True/False if the given relative x, y, z block is visible. """
-		return self.visible[self.center + relX, self.center + relY, self.center + relZ]
+		return self.visible[self.center + relY, self.center + relX, self.center + relZ]
 
 	def setVisible(self, relX, relY, relZ):
 		""" Sets the given relative x, y, z block to visible """
-		self.visible[self.center + relX, self.center + relY, self.center + relZ] = True
+		self.visible[self.center + relY, self.center + relX, self.center + relZ] = True
 
 	def setInvisible(self, relX, relY, relZ):
 		""" Sets the block at relative x, y, z coordinates to empty string. """
-		self.visible[self.center + relX, self.center + relY, self.center + relZ] = False
+		self.visible[self.center + relY, self.center + relX, self.center + relZ] = False
 
 
 	def applyVisibility(self):
@@ -150,7 +152,7 @@ class VisionHandler(object):
 			for y in range(-self.size, self.size + 1):
 				for z in range(-self.size, self.size + 1):
 					if not self.isVisible(x, y, z):
-						self.matrix[self.center + x, self.center + y, self.center + z] = ""
+						self.matrix[self.center + y, self.center + x, self.center + z] = ""
 
 		self.updateVisibleBlockList()
 

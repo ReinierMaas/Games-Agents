@@ -179,16 +179,9 @@ if __name__ == "__main__":
 
 			# Print all the blocks that we can see
 			print "blocks around us: \n{}".format(visionHandler)
-			print "visible blocks: \n"
-
-			for block in visionHandler.visibleBlocks:
-				x, y, z = block.getXYZ()
-				print "\t{}, type = {}".format(block, visionHandler.getBlockAtRelPos(x, y, z))
-
 
 			# Look for wood
 			woodPositions = visionHandler.findWood()
-			# print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
 
 			if woodPositions == []:
 				# Shit, no wood visible/in range... keep moving then
@@ -199,12 +192,12 @@ if __name__ == "__main__":
 				targetBlockPosRel = None
 			else:
 				# Walk to the first wood block
-				realWoodPos = playerPos.astype(int) + woodPositions[0]
+				realWoodPos = np.round(playerPos, 0).astype(int) + woodPositions[0]
 				tempx, tempy, tempz = woodPositions[0]
-				print "wood at {}, {}, {}: {}".format(tempx, tempy, tempz,
+				print "wood[0] at {}, {}, {}: {}".format(tempx, tempy, tempz,
 					visionHandler.isBlock(tempx, tempy, tempz, BLOCK_WOOD))
 
-				print "Wood found at relative position {} and absolute position {}".format(
+				print "Target wood found at relative position {} and absolute position {}".format(
 					targetBlockPosRel, targetBlockPos)
 
 				# If it's the first wood block we target, set it as new target
@@ -228,22 +221,26 @@ if __name__ == "__main__":
 
 				controller.lookAtVertically(targetBlockPos)
 
-				# If we are standing close enough to the wood block, start
-				# punching it, which means we are less than 1 block away (aka,
-				# we are standing right in front of the wood block)
-				# TODO: Use line of sight stuff
-				distance = getVectorDistance(playerPos, targetBlockPos)
-				# print "distance = {}".format(distance)
+				# Check line of sight to see if we have targeted the right block
+				if u"LineOfSight" in observation:
+					lineOfSight = observation[u"LineOfSight"]
+					block = np.array([lineOfSight[u"x"], lineOfSight[u"y"],
+						lineOfSight[u"z"]]).astype(int)
+					print "block = {}, target = {}".format(block, targetBlockPos)
 
-				if distance <= sqrt(3):
-					print "Chopping tree down!!!!"
-					agentHost.sendCommand("attack 1")
-					agentHost.sendCommand("move 0")
-				else:
-					# Keep moving forward until we reach it
-					print "Moving towards new wood block..."
-					agentHost.sendCommand("attack 0")
-					agentHost.sendCommand("move 1")
+					# If we are standing close enough to the wood block, start
+					# punching it,
+					if (block == targetBlockPos).all() and lineOfSight[u"inRange"]:
+						print "Chopping tree down!!!!"
+						agentHost.sendCommand("attack 1")
+						agentHost.sendCommand("move 0")
+					else:
+						# Keep moving forward until we reach it
+						print "Moving towards new wood block..."
+						agentHost.sendCommand("attack 0")
+
+						# TODO: Move more intelligently
+						agentHost.sendCommand("move 1")
 
 
 		for error in worldState.errors:

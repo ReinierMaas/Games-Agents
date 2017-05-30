@@ -82,9 +82,7 @@ class Controller(object):
 		eyes = np.array([0, PLAYER_EYES_CROUCHING if self.crouch else PLAYER_EYES, 0])
 		dx, dy, dz = self.location - (position + eyes)
 		dh = sqrt(dx**2 + dz**2)
-		pitch = degrees(atan2(dy, dh))
-		# print "dx = {}, dy = {}, dz = {}, dh = {}, pitch = {}".format(dx, dy, dz,
-		# 	dh, pitch)
+		pitch = -degrees(atan2(dy, dh))
 		self.setPitch(pitch)
 
 
