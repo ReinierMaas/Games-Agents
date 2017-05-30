@@ -1,5 +1,11 @@
 # Utility file with utility code and functions
 
+from __future__ import print_function
+import sys
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
 import numpy as np
 
 from math import sqrt, fsum, radians, cos, sin
@@ -40,7 +46,7 @@ def getVectorDistance(vector1, vector2):
 
 def getRotationPitch(pitch):
 	""" Returns the 3D rotation matrix for the given pitch. """
-	radianPitch = radians(pitch)		# Needed for cos() and sin()
+	radianPitch = radians(pitch+90)		# Needed for cos() and sin()
 	rotationPitch = np.array([
 		[1, 0, 0,],
 		[0, cos(radianPitch), -sin(radianPitch)],
@@ -50,7 +56,7 @@ def getRotationPitch(pitch):
 
 def getRotationYaw(yaw):
 	""" Returns the 3D rotation matrix for the given yaw. """
-	radianYaw = radians(yaw)
+	radianYaw = radians(yaw+90)
 	rotationYaw = np.array([
 		[cos(radianYaw), 0, sin(radianYaw)],
 		[0, 1, 0],
@@ -103,16 +109,15 @@ def getLookAt(observation, playerIsCrouching):
 	if "LineOfSight" in observation:
 		lineOfSight = observation[u"LineOfSight"]
 		block = np.array([lineOfSight[u"x"], lineOfSight[u"y"], lineOfSight[u"z"]])
-		lookAt = block - playerEyesPos
+		lookAt = getNormalizedVector(block - playerEyesPos)
 	else:
 		# FUCKING BULLSHIT, now we have to calculate it from pitch/yaw
 		pitch = observation[u"Pitch"]
 		yaw = observation[u"Yaw"]
-
 		# Calculate the rotation of the starting direction the player looks in
-		startDir = np.array([1, 0, 1])		# Corresponds to pitch = yaw = 0
+		startDir = np.array([1, 1, 0])		# Corresponds to pitch = yaw = 0
 		rotationMatrix = getRotationMatrix(pitch, yaw)
-		lookAt = np.dot(rotationMatrix, startDir)
+		lookAt = getNormalizedVector(np.dot(rotationMatrix, startDir))
 
 	return lookAt
 
