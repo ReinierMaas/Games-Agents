@@ -114,34 +114,31 @@ class Action_List:
 		self.reactions = {}
 		self.weights = {}
 
-	def add_condition(self, key, **kwargs):
+	def add_condition(self, key=None, fdict={}):
 		if not key in self.weights:
 			self.weights[key] = 1
-
 		if not key in self.conditions:
-			self.conditions[key] = kwargs
+			self.conditions[key] = fdict
+		else:
+			self.conditions.update(fdict)
 
-			return
-
-		self.conditions[key].update(kwargs)
-
-	def add_reaction(self, key, **kwargs):
+	def add_reaction(self, key, fdict={}):
 		if not key in self.conditions:
 			raise Exception('Trying to add reaction \'%s\' without matching condition.' % key)
-
 		if not key in self.reactions:
-			self.reactions[key] = kwargs
+			self.reactions[key] = fdict
+		else:
+			self.reactions.update(fdict)
 
-			return
-
-		self.reactions[key].update(kwargs)
-
-	def set_weight(self, key, value):
+	def set_weight(self, key, value=1):
 		if not key in self.conditions:
 			raise Exception('Trying to set weight \'%s\' without matching condition.' % key)
-
 		self.weights[key] = value
 
+	def add_action(self, key=None, fn=None, preconditions={}, expectedResult={}, weight=1):
+		self.add_condition(key, preconditions)
+		self.add_reaction(key, expectedResult)
+		self.set_weight(key, weight)
 
 def distance_to_state(state_1, state_2):
 	_scored_keys = set()
