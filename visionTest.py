@@ -156,8 +156,6 @@ if __name__ == "__main__":
 	# Setup vision handler, controller, etc
 	visionHandler = VisionHandler(CUBE_SIZE)
 	controller = Controller(agentHost)
-	targetBlockPos = None
-	targetBlockPosRel = None
 
 	# Mission loop:
 	while worldState.is_mission_running:
@@ -165,6 +163,7 @@ if __name__ == "__main__":
 			# Get observation info
 			msg = worldState.observations[-1].text
 			observation = json.loads(msg)
+			# print "observation = {}".format(observation)
 
 			# Figure out how to know if the player is crouching or not...
 			playerIsCrouching = controller.isCrouching()
@@ -176,9 +175,12 @@ if __name__ == "__main__":
 			visionHandler.updateFromObservation(observation[CUBE_OBS])
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = getPlayerPos(observation)
+			usablePlayerPos = np.round(playerPos, 0).astype(int)
+			print "playerPos = {}, round = {}, final = {}".format(playerPos,
+				np.round(playerPos, 0), usablePlayerPos)
 
 			# Print all the blocks that we can see
-			print "blocks around us: \n{}".format(visionHandler)
+			# print "blocks around us: \n{}".format(visionHandler)
 
 			# Look for wood
 			woodPositions = visionHandler.findWood()
@@ -188,52 +190,56 @@ if __name__ == "__main__":
 				print "No wood in range!"
 				agentHost.sendCommand("move 1")
 				agentHost.sendCommand("attack 0")
-				targetBlockPos = None
-				targetBlockPosRel = None
 			else:
 				# Walk to the first wood block
-				realWoodPos = np.round(playerPos, 0).astype(int) + woodPositions[0]
+				realWoodPos = usablePlayerPos + woodPositions[0]
+				print "realWoodPos = {}".format(realWoodPos)
 				tempx, tempy, tempz = woodPositions[0]
 				print "wood[0] at {}, {}, {}: {}".format(tempx, tempy, tempz,
 					visionHandler.isBlock(tempx, tempy, tempz, BLOCK_WOOD))
 
 				print "Target wood found at relative position {} and absolute position {}".format(
-					targetBlockPosRel, targetBlockPos)
+					woodPositions[0], realWoodPos)
 
-				# If it's the first wood block we target, set it as new target
-				if targetBlockPos is None:
-					targetBlockPos = realWoodPos
-					targetBlockPosRel = woodPositions[0]
+				# # Check if the wood block is gone
+				# x, y, z = targetBlockPosRel
 
-					print "Targeting this wood block (relative {}, real {}) now...".format(
-						targetBlockPosRel, targetBlockPos)
-				else:
-					# Check if the wood block is gone
-					x, y, z = targetBlockPosRel
-
-					if not visionHandler.isBlock(x, y, z, BLOCK_WOOD):
-						# Stop attacking it since its gone, target next one
-						agentHost.sendCommand("attack 0")
-						targetBlockPos = realWoodPos
-						targetBlockPosRel = woodPositions[0]
-						print "Chopped this block down, next! Relative {}, real {}".format(
-							targetBlockPosRel, targetBlockPos)
-
-				controller.lookAtVertically(targetBlockPos)
+				# if not visionHandler.isBlock(x, y, z, BLOCK_WOOD):
+				# 	# Stop attacking it since its gone, target next one
+				# 	agentHost.sendCommand("attack 0")
+				# 	targetBlockPos = realWoodPos
+				# 	targetBlockPosRel = woodPositions[0]
+				# 	print "Chopped this block down, next! Relative {}, real {}".format(
+				# 		targetBlockPosRel, targetBlockPos)
+				# TODO: Fix lookAtVertically to make it look at the actual face,
+				# instead of at the block...
+				controller.lookAtVertically(realWoodPos)
 
 				# Check line of sight to see if we have targeted the right block
 				if u"LineOfSight" in observation:
 					lineOfSight = observation[u"LineOfSight"]
-					block = np.array([lineOfSight[u"x"], lineOfSight[u"y"],
-						lineOfSight[u"z"]]).astype(int)
-					print "block = {}, target = {}".format(block, targetBlockPos)
+					blockOriginal = np.array([lineOfSight[u"x"] - 1.0,
+						lineOfSight[u"y"], lineOfSight[u"z"]])
+
+					block = blockOriginal.astype(int)
+					relBlockPos = block - usablePlayerPos
+					x, y, z = relBlockPos
+					blockIsWood = visionHandler.isBlock(x, y, z, BLOCK_WOOD)
+					blockType = lineOfSight[u"type"]
+					print "LOS block = {}, LOS type = {}, isWood = {}, target = {}".format(
+						block, blockType, blockIsWood, realWoodPos)
 
 					# If we are standing close enough to the wood block, start
 					# punching it,
-					if (block == targetBlockPos).all() and lineOfSight[u"inRange"]:
+					inRange = lineOfSight[u"inRange"]
+					print "relBlockPos = {} {} {}, inRange = {}".format(x, y, z,
+						inRange)
+
+					if inRange and ((block == realWoodPos).all() or blockIsWood or blockType == BLOCK_WOOD):
+
 						print "Chopping tree down!!!!"
-						agentHost.sendCommand("attack 1")
 						agentHost.sendCommand("move 0")
+						agentHost.sendCommand("attack 1")
 					else:
 						# Keep moving forward until we reach it
 						print "Moving towards new wood block..."

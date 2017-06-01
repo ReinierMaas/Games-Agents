@@ -41,12 +41,14 @@ def getNormalizedVector(vector):
 
 def getVectorDistance(vector1, vector2):
 	""" Returns the Euclidean distance between 2 vectors. """
+
+	# fsum is more accurate and uses Kahan summation along with IEEE-754 fp stuff
 	return sqrt(fsum([(element1 - element2)**2 for element1, element2 in zip(vector1, vector2)]))
 
 
 def getRotationPitch(pitch):
 	""" Returns the 3D rotation matrix for the given pitch. """
-	radianPitch = radians(pitch+90)		# Needed for cos() and sin()
+	radianPitch = radians(pitch + 90)		# Needed for cos() and sin()
 	rotationPitch = np.array([
 		[1, 0, 0,],
 		[0, cos(radianPitch), -sin(radianPitch)],
@@ -56,7 +58,7 @@ def getRotationPitch(pitch):
 
 def getRotationYaw(yaw):
 	""" Returns the 3D rotation matrix for the given yaw. """
-	radianYaw = radians(yaw+90)
+	radianYaw = radians(yaw + 90)
 	rotationYaw = np.array([
 		[cos(radianYaw), 0, sin(radianYaw)],
 		[0, 1, 0],

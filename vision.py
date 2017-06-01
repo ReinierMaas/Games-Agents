@@ -124,6 +124,20 @@ class VisionHandler(object):
 		return self.findBlocks(BLOCK_WOOD)
 
 
+	def getWalkableBlocks(self):
+		""" Returns a list of all [x, y, z] blocks that the player can stand on. """
+
+		walkableBlocks = []
+
+		for block in self.visibleBlocks:
+			x, y, z = block.getXYZ()
+
+			if self.isBlock(x, y, z, "air") and self.isBlock(x, y + 1, z, "air"):
+				walkableBlocks.append(np.array([x, y, z]))
+
+		return walkableBlocks
+
+
 	def __setupVisibilityMatrix(self):
 		self.visible = np.zeros((self.realSize, self.realSize, self.realSize), dtype=bool)
 
