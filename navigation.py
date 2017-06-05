@@ -6,23 +6,70 @@ import json
 from controller import *
 from math import *
 from util import *
+import numpy as np
 
 
-next_wid = 0
+nextWid = 0
+
+class Graph(object):
+	def __init__(self, width, height, depth):
+		self.width, self.height, self.depth = width, height, depth
+		self.grid = np.array([[[WaypointNode((x,y,z), sqrt(2)) for z in range(depth) ] for y in range(height)] for x in range(width)])
+		self.enabledNodes = set()
+
+	def nodeAt(self, x, y, z):
+		return self.grid[x][y][z]
+
+	def nodeAtLocation(self, loc):
+	    x, y, z = loc[0], loc[1], loc[2]
+		return self.nodeAt(x,y,z)
+
 
 #data are key-value pairs, we can seach nodes for keys to exist, and store info at
 #certain keys as well
 class WaypointNode(object):
-	def __init__(self, location, radius, data = None):
-		global next_wid
-		self.WID = next_wid
+	def __init__(self, location, radius, graph = None, data = None):
+		global nextWid
+		self.graph = graph
+		self.WID = nextWid
 		next_wid += 1
 		self.location = location
 		self.radius = radius
 		self.data = data
+		self.enabled = False
 		if data is None:
 			self.data = {}
-		self.nodes = []
+		if graph is None:
+			self.nodes = []
+		else:
+			self.nodes = None
+
+	def getNeighbors(self, filterNodes = True):
+		if self.graph is None:
+			return self.nodes
+		else:
+			x, y, z = self.location[0], self.location[1], self.location[2]
+			neighbors = [self.graph.nodeAt(x-1,y,z), self.graph.nodeAt(x+1,y,z), \
+				self.graph.nodeAt(x,y-1,z), self.graph.nodeAt(x,y+1,z), \
+				self.graph.nodeAt(x,y,z-1), self.graph.nodeAt(x,y,z+1)]
+			if filterNodes:
+				return filter(lambda node: node.enabled, neighbors)
+			else:
+				return neighbors
+
+	def enable(self):
+		"""Enable this node"""
+		if self.enabled:
+			return
+		self.enabled = True
+		self.graph.enabledNodes.add(self)
+
+	def disable(self):
+		"""Disable this node"""
+		if not self.enabled:
+			return
+		self.enabled = False
+		self.graph.enabledNodes.remove(self)
 
 	def contains(self, point):
 		x, y, z = self.location
@@ -63,12 +110,6 @@ class WaypointNode(object):
 		if doPrint:
 			print "added new connection %i - %i" % (self.WID, neighbor.WID)
 
-	def detach(self):
-		"""remove this waypoint from the graph"""
-		for node in self.nodes:
-			if self in node.nodes:
-				node.nodes.remove(self)
-
 	def findNodes(self, key):
 		allNodes = self.getAllNodes()
 		newNodes = filter(lambda node: key in node.data, allNodes)
@@ -100,6 +141,9 @@ def Astar(wpStart, wpEnd, heuristic):
 	"""wpStart, wpEnd : WaypointNode, heuristic: (WaypointNode, WaypointNode) -> float"""
 	"""returns a list of waypoints, or None if no route was found"""
 	#initialize
+	'''https://en.wikipedia.org/wiki/A*_search_algorithm'''
+	if not wpStart.enabled or not wpEnd.enabled:
+		print "Astar error, either start or end point isn't a valid node"
 	closedSet = set()
 	openSet = set([wpStart])
 	cameFrom = {}
@@ -120,7 +164,7 @@ def Astar(wpStart, wpEnd, heuristic):
 		closedSet.add(current)
 
 		#discover new nodes
-		for neighbor in current.nodes:
+		for neighbor in current.getNeighbors():
 			if neighbor in closedSet:
 				continue
 
@@ -197,7 +241,7 @@ class Navigator(object):
 				distance = dist
 		self.lastWaypoint = bestNode
 
-	def update(self):
+	def update(self, autoMove):
 		if not self.enabled:
 			return
 		if self.exploring:
@@ -232,10 +276,12 @@ class Navigator(object):
 				else:
 					self.target = None
 					self.targetReached = True
-					self.controller.agent.sendCommand("move 0")
+					if autoMove:
+						self.controller.move(0)
 
 			if self.target is not None:
 				(tx, ty, tz) = self.target.location
 				self.controller.lookAtHorizontally2(self.target.location)
-				self.controller.agent.sendCommand("move 1")
+				if autoMove:
+					self.controller.move(1)
 

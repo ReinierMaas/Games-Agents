@@ -22,6 +22,7 @@ class Controller(object):
 		self.pitch = 0.0
 		self.location = np.array([0, 0, 0], dtype=float)
 		self.crouch = 0
+		self.speed = 0
 
 	def getLocation(self):
 		return (self.location[0], self.location[1], self.location[2])
@@ -97,3 +98,7 @@ class Controller(object):
 
 	def isCrouching(self):
 		return self.crouch
+
+	def move(self, speed):
+		self.agent.sendCommand("move {}".format(speed))
+		self.speed = speed
