@@ -25,6 +25,7 @@ class Controller(object):
 		self.speed = 0
 
 	def getLocation(self):
+		"""Get the location as tuple"""
 		return (self.location[0], self.location[1], self.location[2])
 
 	def update(self, observation):

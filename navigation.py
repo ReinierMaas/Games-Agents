@@ -9,51 +9,52 @@ from util import *
 import numpy as np
 
 
-nextWid = 0
-
 class Graph(object):
-	def __init__(self, width, height, depth):
+	def __init__(self, width, height, depth, heightOffset = 0):
+		self.heightOffset = heightOffset
 		self.width, self.height, self.depth = width, height, depth
-		self.grid = np.array([[[WaypointNode((x,y,z), sqrt(2)) for z in range(depth) ] for y in range(height)] for x in range(width)])
+		self.grid = np.array([[[WaypointNode((x - int(width/2),y + heightOffset,z - int(depth/2)), sqrt(2), graph = self) for z in range(depth) ] for y in range(height)] for x in range(width)], dtype=object)
 		self.enabledNodes = set()
+		self.flaggedNodes = {} #dict key -> set(node)
 
 	def nodeAt(self, x, y, z):
-		return self.grid[x][y][z]
+		return self.grid[int(x) + int(self.width/2)][int(y) - int(self.heightOffset)][int(z) + int(self.depth/2)]
 
 	def nodeAtLocation(self, loc):
-	    x, y, z = loc[0], loc[1], loc[2]
+		x, y, z = loc[0], loc[1], loc[2]
 		return self.nodeAt(x,y,z)
+
+	def findNodes(self, key):
+		ret = self.flaggedNodes.get(key)
+		if ret is not None:
+			return ret
+		else:
+			return set()
 
 
 #data are key-value pairs, we can seach nodes for keys to exist, and store info at
 #certain keys as well
 class WaypointNode(object):
-	def __init__(self, location, radius, graph = None, data = None):
-		global nextWid
+	def __init__(self, location, radius, graph = None):
 		self.graph = graph
-		self.WID = nextWid
-		next_wid += 1
 		self.location = location
 		self.radius = radius
-		self.data = data
 		self.enabled = False
-		if data is None:
-			self.data = {}
-		if graph is None:
-			self.nodes = []
-		else:
-			self.nodes = None
 
-	def getNeighbors(self, filterNodes = True):
+	def getNeighbors(self, filterNodes = True, goal = None):
+		"""Get the neighbors of this node, you may filter for enabled nodes and disable the filter for the goal node"""
 		if self.graph is None:
 			return self.nodes
 		else:
 			x, y, z = self.location[0], self.location[1], self.location[2]
-			neighbors = [self.graph.nodeAt(x-1,y,z), self.graph.nodeAt(x+1,y,z), \
-				self.graph.nodeAt(x,y-1,z), self.graph.nodeAt(x,y+1,z), \
-				self.graph.nodeAt(x,y,z-1), self.graph.nodeAt(x,y,z+1)]
+			neighbors = []
+			for ix in range(-1, 2):
+				for iy in range(-1, 2):
+					for iz in range(-1, 2):
+						neighbors.append(self.graph.nodeAt(ix, iy, iz))
+			neighbors.remove(self)
 			if filterNodes:
-				return filter(lambda node: node.enabled, neighbors)
+				return filter(lambda node: node.enabled or (node == goal and goal is not None), neighbors)
 			else:
 				return neighbors
 
@@ -78,27 +79,30 @@ class WaypointNode(object):
 		return dx**2 + dy**2 + dz**2 <= self.radius**2
 
 	def getAllNodes(self):
-		"""get all nodes in the graph this waypoint is part of"""
-		"""return : set(WaypointNode)"""
-		discovered = set([self])
-		discovered |= set(self.nodes)
-		size = len(discovered)
-		old_size = 0
-		while(size != old_size):
-			old_size = size
-			disc2 = set()
-			for node in discovered:
-				disc2 |= set(node.nodes)
-			discovered |= disc2
-			size = len(discovered)
-		return discovered
+		return self.graph.enabledNodes()
+		# """get all nodes in the graph this waypoint is part of"""
+		# """return : set(WaypointNode)"""
+		# discovered = set([self])
+		# discovered |= set(self.nodes)
+		# size = len(discovered)
+		# old_size = 0
+		# while(size != old_size):
+		# 	old_size = size
+		# 	disc2 = set()
+		# 	for node in discovered:
+		# 		disc2 |= set(node.nodes)
+		# 	discovered |= disc2
+		# 	size = len(discovered)
+		# return discovered
 
 	def assignNeighbors(self, neighbors):
+		pass
 		"""assign multiple neighbors to this node"""
 		for n in neighbors:
 			self.assignNeighbor(n)
 
 	def assignNeighbor(self, neighbor, doPrint = False):
+		pass
 		"""assign a neigbor to this waypoint graph"""
 		if neighbor is None or self == neighbor:
 			return
@@ -110,11 +114,11 @@ class WaypointNode(object):
 		if doPrint:
 			print "added new connection %i - %i" % (self.WID, neighbor.WID)
 
-	def findNodes(self, key):
-		allNodes = self.getAllNodes()
-		newNodes = filter(lambda node: key in node.data, allNodes)
-		return newNodes
-
+	def setFlag(self, flag):
+		if flag in self.graph.flaggedNodes:
+			self.graph.flaggedNodes[flag].add(self)
+		else:
+			self.graph.flaggedNodes[flag] = set([self])
 
 def euclidianDistance(wp1, wp2):
 	"""returns the euclidian distance between 2 waypoints"""
@@ -164,7 +168,7 @@ def Astar(wpStart, wpEnd, heuristic):
 		closedSet.add(current)
 
 		#discover new nodes
-		for neighbor in current.getNeighbors():
+		for neighbor in current.getNeighbors(goal = wpEnd):
 			if neighbor in closedSet:
 				continue
 
@@ -193,7 +197,8 @@ def findRoute(startWp, endWp):
 
 def findRoutesByKey(startWp, key):
 	"""Find the shortest routes from the start waypoint to all waypoints that contain a given key"""
-	nodes = startWp.findNodes(key)
+	graph = startWp.graph
+	nodes = graph.findNodes(key)
 	return map(lambda node: Astar(startWp, node, euclidianDistance), nodes)
 
 def findRouteByKey(startWp, key):
@@ -207,11 +212,15 @@ class Navigator(object):
 	def __init__(self, controller):
 		self.controller = controller
 		self.enabled = True
+		self.graph = None
 		self.lastWaypoint = None #: WaypointNode
 		self.target = None  #: WaypointNode
 		self.route = [] #: [WaypointNode]
 		self.targetReached = False
 		self.exploring = False
+
+	def setNavGraph(self, graph):
+		self.graph = graph
 
 	def setRoute(self, route):
 		self.route = route
@@ -241,9 +250,25 @@ class Navigator(object):
 				distance = dist
 		self.lastWaypoint = bestNode
 
+	def updateFromVision(self, walkable, interesting):
+		if walkable is not None:
+			for loc in walkable:
+				blockLoc = loc + self.controller.location
+				node = self.graph.nodeAtLocation(blockLoc)
+				node.enable()
+		if interesting is not None:
+			for loc, flag in interesting:
+				blockLoc = loc + self.controller.location
+				node = self.graph.nodeAtLocation(blockLoc)
+				node.setFlag(flag)
+
+
 	def update(self, autoMove):
 		if not self.enabled:
 			return
+
+		lastWaypoint = self.graph.nodeAtLocation(self.controller.location)
+		"""
 		if self.exploring:
 			if self.lastWaypoint is None:
 				self.placeWaypoint()
@@ -268,8 +293,9 @@ class Navigator(object):
 				if distanceH(node.location, self.controller.getLocation()) <= node.radius:
 					self.lastWaypoint.assignNeighbor(node)
 
-		elif self.target is not None:
-			if distanceH(self.controller.getLocation(), self.target.location) < self.target.radius / 4:
+		elif self.target is not None:"""
+		if not self.exploring and self.target is not None:
+			if distanceH(self.controller.getLocation(), self.target.location) < self.target.radius:
 				if len(self.route) > 0:
 					print "next target"
 					self.target = self.route.pop(0)
@@ -280,7 +306,6 @@ class Navigator(object):
 						self.controller.move(0)
 
 			if self.target is not None:
-				(tx, ty, tz) = self.target.location
 				self.controller.lookAtHorizontally2(self.target.location)
 				if autoMove:
 					self.controller.move(1)

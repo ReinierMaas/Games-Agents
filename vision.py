@@ -25,6 +25,10 @@ TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 
 BLOCK_WOOD = "log"
 
+# This lists all blocks that the agent can stand not (safely) on
+UNWALKABLE_BLOCKS = ["lava", "water"]
+UNWALKABLE_BLOCKS.extend(TRANSPARANT_BLOCKS)
+
 
 
 ################################################################################
@@ -104,6 +108,7 @@ class VisionHandler(object):
 		# 	self.getBlockAtRelPos(relX, relY, relZ))
 		return self.getBlockAtRelPos(relX, relY, relZ) == blockName
 
+
 	def findBlocks(self, blockName):
 		"""
 		Returns a list of [x, y, z] coordinates as a list of numpy arrays, where
@@ -132,7 +137,7 @@ class VisionHandler(object):
 		for block in self.visibleBlocks:
 			x, y, z = block.getXYZ()
 
-			if self.isBlock(x, y, z, "air") and self.isBlock(x, y + 1, z, "air"):
+			if self.getBlockAtRelPos(x,y,z) not in UNWALKABLE_BLOCKS and self.isBlock(x, y + 1, z, "air") and self.isBlock(x, y + 2, z, "air"):
 				walkableBlocks.append(np.array([x, y, z]))
 
 		return walkableBlocks
