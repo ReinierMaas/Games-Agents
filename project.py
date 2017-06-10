@@ -134,11 +134,13 @@ if __name__ == "__main__":
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = controller.location
 
-			nonWalkable = visionHandler.getWalkableBlocks()
+			walkable = visionHandler.getWalkableBlocks()
+			#print len(walkable)
 			interestingBlocks = getInterestingBlocks(visionHandler)
 
-			navigator.updateFromVision(nonWalkable, interestingBlocks, CUBE_SIZE)
+			navigator.updateFromVision(walkable, interestingBlocks, CUBE_SIZE)
 			navigator.update(autoMove = True)
+
 
 			if time.time() - startTime > 20 and not routeSet:
 				startWp = navigator.lastWaypoint

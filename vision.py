@@ -132,15 +132,15 @@ class VisionHandler(object):
 	def getWalkableBlocks(self):
 		""" Returns a list of all [x, y, z] blocks that the player can stand on. """
 
-		unwalkableBlocks = []
+		walkableBlocks = []
 
 		for block in self.visibleBlocks:
 			x, y, z = block.getXYZ()
 
-			if not (self.getBlockAtRelPos(x,y,z) not in UNWALKABLE_BLOCKS and self.isBlock(x, y + 1, z, "air") and self.isBlock(x, y + 2, z, "air")):
-				unwalkableBlocks.append(np.array([x, y, z]))
+			if (self.getBlockAtRelPos(x,y,z) not in UNWALKABLE_BLOCKS and self.isBlock(x, y +1, z, "air") and self.isBlock(x, y +2, z, "air")):
+				walkableBlocks.append(np.array([x, y, z]))
 
-		return unwalkableBlocks
+		return walkableBlocks
 
 
 	def __setupVisibilityMatrix(self):
