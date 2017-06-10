@@ -105,15 +105,16 @@ if __name__ == "__main__":
 	time.sleep(0.5)		# To allow observations and rendering to become ready
 
 
+	print "CUBE_SIZE{}".format(CUBE_SIZE)
 	# Setup vision handler, controller, etc
 	visionHandler = VisionHandler(CUBE_SIZE)
 	controller = Controller(agentHost)
-	navGraph = Graph(50,30,50)
+	navGraph = Graph(150, 150, 1)
 	navigator = Navigator(controller)
 	navigator.setNavGraph(navGraph)
 
 	startTime = time.time()
-
+	routeSet = False
 	# Mission loop:
 	while worldState.is_mission_running:
 		if worldState.number_of_observations_since_last_state > 0:
@@ -133,23 +134,19 @@ if __name__ == "__main__":
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = controller.location
 
-			walkable = visionHandler.getWalkableBlocks()
+			nonWalkable = visionHandler.getWalkableBlocks()
 			interestingBlocks = getInterestingBlocks(visionHandler)
-			if len(interestingBlocks) > 0:
-				print "found interesting blocks: ", interestingBlocks
-			navigator.updateFromVision(walkable, interestingBlocks)
+
+			navigator.updateFromVision(nonWalkable, interestingBlocks, CUBE_SIZE)
 			navigator.update(autoMove = True)
 
-			if time.time() - startTime > 30:
-				logs = navigator.graph.findNodes("log")
-				targets = []
-				for log in logs:
-					for n in log.getNeighbors():
-						if n.enabled:
-							targets.append(n)
-				closestTarget = min(targets, key = lambda x: distanceH(x.location, navigator.controller.location))
-				route =findRoute(navigator.lastWayPoint, closestTarget)
-				navigator.setRoute(route)
+			if time.time() - startTime > 20 and not routeSet:
+				startWp = navigator.lastWaypoint
+				routeSet = True
+				route = findRouteByKey(startWp, "log")
+				if route is not None:
+					print route
+					navigator.setRoute(route)
 
 
 			# # Print all the blocks that we can see

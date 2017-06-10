@@ -60,7 +60,7 @@ class Controller(object):
 		if int(self.yaw) == int(newYaw):
 			return
 
-		print "Set new yaw: {}".format(newYaw)
+		#print "Set new yaw: {}".format(newYaw)
 		self.agent.sendCommand("setYaw {}".format(newYaw))
 
 
