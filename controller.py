@@ -82,6 +82,15 @@ class Controller(object):
 		eyes = np.array([0, PLAYER_EYES_CROUCHING if self.crouch else PLAYER_EYES, 0])
 		dx, dy, dz = position - (self.location + eyes)
 		dh = sqrt(dx**2 + dz**2)
+
+		# For some reason, looking up requires a bit more effort, so we scale dy
+		# by 2.0, to compensate for our inability to properly look up
+		# (otherwise upper bound would be limited to pitch = -32.7). This magic
+		# number was found through some testing with appropriate scalings...
+		# Now it works reasonably ok.
+		if dy > 0.0:
+			dy *= 2.5
+
 		pitch = -degrees(atan2(dy, dh))
 		print "dx = {}, dy = {}, dz = {}, dh = {}, atan = {}, pitch = {}".format(
 			dx, dy, dz, dh, atan2(dy, dh), pitch)

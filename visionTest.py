@@ -37,7 +37,7 @@ def getMissionXML():
 					<DrawingDecorator>
 						<DrawSphere x="-5" y="11" z="0" radius="3" type="leaves" />
 						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="9" z2="0" type="air" />
-						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="11" z2="0" type="log" />
+						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="13" z2="0" type="log" />
 						<DrawLine x1="-6" y1="7" z1="-1" x2="-6" y2="7" z2="1" type="stone" />
 						<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
 					</DrawingDecorator>

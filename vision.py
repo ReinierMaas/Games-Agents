@@ -12,7 +12,7 @@ from math import radians, degrees, acos, tan
 # Configuration for observation cube and vision handling
 ################################################################################
 CUBE_OBS = "cube10"				# Name that will be used in XML/JSON
-CUBE_SIZE = 2					# Size in 1 direction
+CUBE_SIZE = 6					# Size in 1 direction
 FOV = 70						# Default Field of View for Minecraft
 
 
