@@ -408,7 +408,7 @@ class VisionHandler(object):
 						intersectionT.append(t)
 
 				# Check if this ray hit anything and update visibility
-				if intersectedBlocks is not []:
+				if intersectedBlocks != []:
 					# Now we need to order the intersected blocks based on their
 					# intersected t values, so we can clip non-visible blocks...
 					order = np.array(intersectionT).argsort()

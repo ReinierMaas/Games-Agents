@@ -1,14 +1,10 @@
 # Utility file with utility code and functions
-
 from __future__ import print_function
+from math import *
+
 import sys
-
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-
 import numpy as np
 
-from math import sqrt, fsum, radians, cos, sin, ceil, floor
 
 
 # Some constants that can be useful
@@ -44,6 +40,7 @@ def getVectorDistance(vector1, vector2):
 
 	# fsum is more accurate and uses Kahan summation along with IEEE-754 fp stuff
 	return sqrt(fsum([(element1 - element2)**2 for element1, element2 in zip(vector1, vector2)]))
+
 
 
 def getRotationPitch(pitch):
@@ -89,9 +86,11 @@ def distanceH(vector1, vector2):
 	dz = z1 - z2
 	return sqrt(dx**2 + dz**2)
 
+
 def distanceV(vector1, vector2):
 	""" Returns vertical distance between 2 vectors. """
 	return vector1[1] - vector2[1]
+
 
 
 def getPlayerPos(observation, getIntVersion=False):
@@ -146,4 +145,22 @@ def getLineOfSightBlock(lineOfSightDict):
 		lineOfSightDict[u"z"]]).astype(int)
 
 
+
+def getEntityPositions(entitiesList, entityToFind):
+	"""
+	Returns a list of numpy arrays where the requested entity/entities are, or
+	else an empty list of no entities can be found in the list
+	"""
+	positionsFound = []
+
+	for entity in entitiesList:
+		if entity[u"name"] == entityToFind:
+			x, y, z = entity[u"x"], entity[u"y"], entity[u"z"]
+			positionsFound.append(np.array([x, y, z]))
+
+	return positionsFound
+
+
+def eprint(*args, **kwargs):
+	print(*args, file=sys.stderr, **kwargs)
 
