@@ -55,10 +55,7 @@ class Controller(object):
 
 	def setYaw(self, newYaw):
 		""" Makes the agent look at a given yaw value. """
-		if int(self.yaw) == int(newYaw):
-			return
-
-		print "Set new yaw: {}".format(newYaw)
+		# print "Set new yaw: {}".format(newYaw)
 		self.agent.sendCommand("setYaw {}".format(newYaw))
 
 
@@ -74,8 +71,8 @@ class Controller(object):
 	def lookAtHorizontally(self, position):
 		""" Turns the agent to look at the given position. """
 		dx, dz = self.location[0] - position[0], self.location[2] - position[2]
-		yw = degrees(atan2(dz, dx)) + 90
-		self.setYaw(yw)
+		yaw = degrees(atan2(dz, dx)) + 90.0
+		self.setYaw(yaw)
 
 
 	def lookAtVertically(self, position):
@@ -87,13 +84,11 @@ class Controller(object):
 		# by 2.0, to compensate for our inability to properly look up
 		# (otherwise upper bound would be limited to pitch = -32.7). This magic
 		# number was found through some testing with appropriate scalings...
-		# Now it works reasonably ok.
-		if dy > 0.0:
-			dy *= 2.5
+		# Now it works reasonably ok...
+		# if dy > 0.0:
+		# 	dy *= 2.0
 
 		pitch = -degrees(atan2(dy, dh))
-		print "dx = {}, dy = {}, dz = {}, dh = {}, atan = {}, pitch = {}".format(
-			dx, dy, dz, dh, atan2(dy, dh), pitch)
 		self.setPitch(pitch)
 
 

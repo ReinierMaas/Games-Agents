@@ -12,9 +12,39 @@ from util import *
 from controller import *
 from vision import *
 
+ENTITIES_KEY = "entities"
+
+
+def getRandomTreeSpawnPos(spawnRange = CUBE_SIZE, fixedY = 7):
+	"""
+	Returns random x, z (fixed y) to use as a random tree spawn. The spawnRange
+	is used as an upper and lower limit to x, z, as seen from the origin. Note
+	that this function does not use x = 0 and z = 0 for a tree spawn.
+	"""
+
+	x, z = np.random.randint(1, spawnRange), np.random.randint(1, spawnRange)
+
+	# Determine random sign for x and z
+	xSign = np.random.randint(0, 2, dtype=bool)
+	zSign = np.random.randint(0, 2, dtype=bool)
+
+	if not xSign:
+		x = -x
+
+	if not zSign:
+		z = -z
+
+	return x, fixedY, z
+
 
 def getMissionXML():
 	""" Generates mission XML with flat world and 1 crappy tree. """
+
+	# Get random tree position and height (number of log blocks)
+	x, y, z = getRandomTreeSpawnPos()
+	numLogs = np.random.randint(1, CUBE_SIZE)	# Within vision range...
+
+
 	return """<?xml version="1.0" encoding="UTF-8" ?>
 		<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 			<About>
@@ -35,9 +65,9 @@ def getMissionXML():
 					<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />
 
 					<DrawingDecorator>
-						<DrawSphere x="-5" y="11" z="0" radius="3" type="leaves" />
-						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="9" z2="0" type="air" />
-						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="13" z2="0" type="log" />
+						<DrawSphere x="{x}" y="{yLeaves}" z="{z}" radius="3" type="leaves" />
+						<DrawLine x1="{x}" y1="{y}" z1="{z}" x2="{x}" y2="{yTreeHeight}" z2="{z}" type="log" />
+
 						<DrawLine x1="-6" y1="7" z1="-1" x2="-6" y2="7" z2="1" type="stone" />
 						<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
 					</DrawingDecorator>
@@ -59,17 +89,21 @@ def getMissionXML():
 					<InventoryCommands />
 
 					<ObservationFromFullStats />
+					<ObservationFromNearbyEntities>
+						<Range name="{entitiesName}" xrange="40" yrange="40" zrange="40"/>
+					</ObservationFromNearbyEntities>
 					<ObservationFromRay />
 					<ObservationFromHotBar />
 					<ObservationFromGrid>
-						<Grid name="{0}">
-							<min x="-{1}" y="-{1}" z="-{1}"/>
-							<max x="{1}" y="{1}" z="{1}"/>
+						<Grid name="{gridName}">
+							<min x="-{gridSize}" y="-{gridSize}" z="-{gridSize}"/>
+							<max x="{gridSize}" y="{gridSize}" z="{gridSize}"/>
 						</Grid>
 					</ObservationFromGrid>
 				</AgentHandlers>
 			</AgentSection>
-		</Mission>""".format(CUBE_OBS, CUBE_SIZE)
+		</Mission>""".format(x=x, y=y, z=z, yLeaves=y+4, yTreeHeight=y+numLogs+2,
+			entitiesName=ENTITIES_KEY, gridName=CUBE_OBS, gridSize=CUBE_SIZE)
 
 
 def getAgentHost():
@@ -166,6 +200,9 @@ if __name__ == "__main__":
 			observation = json.loads(msg)
 			# print "observation = {}".format(observation)
 
+			if ENTITIES_KEY in observation:
+				print "entities = {}".format(observation[ENTITIES_KEY])
+
 			playerIsCrouching = controller.isCrouching()
 			lookAt = getLookAt(observation, playerIsCrouching)
 
@@ -176,8 +213,8 @@ if __name__ == "__main__":
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
 			playerPos = getPlayerPos(observation, False)
 			usablePlayerPos = getPlayerPos(observation, True)
-			print "playerPos = {}, round = {}, final = {}".format(playerPos,
-				np.round(playerPos, 0), usablePlayerPos)
+			# print "playerPos = {}, round = {}, final = {}".format(playerPos,
+			# 	np.round(playerPos, 0), usablePlayerPos)
 
 			# Print all the blocks that we can see
 			# print "blocks around us: \n{}".format(visionHandler)
@@ -187,67 +224,60 @@ if __name__ == "__main__":
 
 			if woodPositions == []:
 				# Shit, no wood visible/in range... keep moving then
-				print "No wood in range!"
+				# print "No wood in range!"
+				controller.setPitch(0)
 				agentHost.sendCommand("move 1")
 				agentHost.sendCommand("attack 0")
+
+				# Check to see if we can collect some wood spoils...
+
 			else:
-				# Walk to the first wood block
-				realWoodPos = usablePlayerPos + woodPositions[0]
-				print "realWoodPos = {}".format(realWoodPos)
+				# Look at the first wood block
+				usableWoodPos = usablePlayerPos + woodPositions[0]
+				realWoodPos = playerPos + woodPositions[0]
+				# print "usableWoodPos = {}, realWoodPos = {}".format(usableWoodPos,
+				# 	realWoodPos)
 				tempx, tempy, tempz = woodPositions[0]
-				print "wood[0] at {}, {}, {}: {}".format(tempx, tempy, tempz,
-					visionHandler.isBlock(tempx, tempy, tempz, BLOCK_WOOD))
+				# print "wood[0] at {}, {}, {}: {}".format(tempx, tempy, tempz,
+				# 	visionHandler.isBlock(tempx, tempy, tempz, BLOCK_WOOD))
 
-				print "Target wood found at relative position {} and absolute position {}".format(
-					woodPositions[0], realWoodPos)
+				# print "Target wood found at relative position {} and absolute position {}".format(
+				# 	woodPositions[0], usableWoodPos)
 
-				# # Check if the wood block is gone
-				# x, y, z = targetBlockPosRel
-
-				# if not visionHandler.isBlock(x, y, z, BLOCK_WOOD):
-				# 	# Stop attacking it since its gone, target next one
-				# 	agentHost.sendCommand("attack 0")
-				# 	targetBlockPos = realWoodPos
-				# 	targetBlockPosRel = woodPositions[0]
-				# 	print "Chopped this block down, next! Relative {}, real {}".format(
-				# 		targetBlockPosRel, targetBlockPos)
-				# TODO: Fix lookAtVertically to make it look at the actual face,
-				# instead of at the block...
-				controller.lookAtVertically(realWoodPos)
+				controller.lookAt(realWoodPos)
 
 				# Check line of sight to see if we have targeted the right block
 				if u"LineOfSight" in observation:
-					lineOfSight = observation[u"LineOfSight"]
-					blockOriginal = np.array([lineOfSight[u"x"] - 1.0,
-						lineOfSight[u"y"], lineOfSight[u"z"]])
-
-					block = blockOriginal.astype(int)
-					relBlockPos = block - usablePlayerPos
+					lineOfSightDict = observation[u"LineOfSight"]
+					losBlock = getLineOfSightBlock(lineOfSightDict)
+					relBlockPos = losBlock - usablePlayerPos
 					x, y, z = relBlockPos
-					blockIsWood = visionHandler.isBlock(x, y, z, BLOCK_WOOD)
-					blockType = lineOfSight[u"type"]
+					visionBlockIsWood = visionHandler.isBlock(x, y, z, BLOCK_WOOD)
+					losBlockType = lineOfSightDict[u"type"]
 					print "LOS block = {}, LOS type = {}, isWood = {}, target = {}".format(
-						block, blockType, blockIsWood, realWoodPos)
+						losBlock, losBlockType, visionBlockIsWood, usableWoodPos)
 
 					# If we are standing close enough to the wood block, start
 					# punching it,
-					inRange = lineOfSight[u"inRange"]
-					print "relBlockPos = {} {} {}, inRange = {}".format(x, y, z,
-						inRange)
+					inRange = lineOfSightDict[u"inRange"]
+					# print "relBlockPos = {} {} {}, inRange = {}".format(x, y, z,
+					# 	inRange)
 
-					if inRange and ((block == realWoodPos).all() or blockIsWood or blockType == BLOCK_WOOD):
-
-						print "Chopping tree down!!!!"
+					if inRange and ((losBlock == usableWoodPos).all() or visionBlockIsWood or losBlockType == BLOCK_WOOD):
+						# print "Chopping tree down!!!!"
 						agentHost.sendCommand("move 0")
 						agentHost.sendCommand("attack 1")
 					else:
-						# Keep moving forward until we reach it
-						print "Moving towards new wood block..."
+						# If the distance between the wood block and our position
+						# is too far away, we need to towards it
+						print "MURT! distanceH is {}".format(distanceH(playerPos, realWoodPos))
 						agentHost.sendCommand("attack 0")
 
-						# TODO: Move more intelligently
-						agentHost.sendCommand("move 1")
-						# controller.lookAtVertically(realWoodPos)
+						if distanceH(playerPos, realWoodPos) > sqrt(2) - 0.1:
+							# Keep moving forward until we reach it
+							# print "Moving towards new wood!"
+							controller.lookAt(realWoodPos)
+							agentHost.sendCommand("move 1")
 
 
 		for error in worldState.errors:

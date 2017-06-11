@@ -89,6 +89,9 @@ def distanceH(vector1, vector2):
 	dz = z1 - z2
 	return sqrt(dx**2 + dz**2)
 
+def distanceV(vector1, vector2):
+	""" Returns vertical distance between 2 vectors. """
+	return vector1[1] - vector2[1]
 
 
 def getPlayerPos(observation, getIntVersion=False):
@@ -101,7 +104,7 @@ def getPlayerPos(observation, getIntVersion=False):
 		x, z = floor(x), floor(z)
 		temp = np.round(np.array([x, y, z]), 0).astype(int)
 
-		print("x = {}, y = {}, z = {}, result = {}...".format(x, y, z, temp))
+		# print("x = {}, y = {}, z = {}, result = {}...".format(x, y, z, temp))
 		return temp
 	else:
 		return np.array([x, y, z])
@@ -135,13 +138,12 @@ def getLookAt(observation, playerIsCrouching):
 
 
 
-def getRealPos(malmoPos):
-	""" Returns the real position in minecraft compared to our Malmo position. """
-	return malmoPos + MALMO_OFFSET
+def getLineOfSightBlock(lineOfSightDict):
+	""" Returns real position of the line of sight block as an int np array. """
 
+	# We offset x by -1.0 because minecraft has a shitty coordinate system etc
+	return np.array([lineOfSightDict[u"x"] - 1.0, lineOfSightDict[u"y"],
+		lineOfSightDict[u"z"]]).astype(int)
 
-def getRealPosFromRelPos(playerPos, relPos):
-	""" Returns the real position in MC compared to our relative player position. """
-	return getRealPos(playerPos + relPos)
 
 
