@@ -80,9 +80,11 @@ class Controller(object):
 
 	def lookAtVertically(self, position):
 		eyes = np.array([0, PLAYER_EYES_CROUCHING if self.crouch else PLAYER_EYES, 0])
-		dx, dy, dz = self.location - (position + eyes)
+		dx, dy, dz = position - (self.location + eyes)
 		dh = sqrt(dx**2 + dz**2)
 		pitch = -degrees(atan2(dy, dh))
+		print "dx = {}, dy = {}, dz = {}, dh = {}, atan = {}, pitch = {}".format(
+			dx, dy, dz, dh, atan2(dy, dh), pitch)
 		self.setPitch(pitch)
 
 

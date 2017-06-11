@@ -36,6 +36,7 @@ def getMissionXML():
 
 					<DrawingDecorator>
 						<DrawSphere x="-5" y="11" z="0" radius="3" type="leaves" />
+						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="9" z2="0" type="air" />
 						<DrawLine x1="-5" y1="7" z1="0" x2="-5" y2="11" z2="0" type="log" />
 						<DrawLine x1="-6" y1="7" z1="-1" x2="-6" y2="7" z2="1" type="stone" />
 						<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
@@ -165,7 +166,6 @@ if __name__ == "__main__":
 			observation = json.loads(msg)
 			# print "observation = {}".format(observation)
 
-			# Figure out how to know if the player is crouching or not...
 			playerIsCrouching = controller.isCrouching()
 			lookAt = getLookAt(observation, playerIsCrouching)
 
@@ -174,8 +174,8 @@ if __name__ == "__main__":
 			controller.setCrouch(False)
 			visionHandler.updateFromObservation(observation[CUBE_OBS])
 			visionHandler.filterOccluded(lookAt, playerIsCrouching)
-			playerPos = getPlayerPos(observation)
-			usablePlayerPos = np.round(playerPos, 0).astype(int)
+			playerPos = getPlayerPos(observation, False)
+			usablePlayerPos = getPlayerPos(observation, True)
 			print "playerPos = {}, round = {}, final = {}".format(playerPos,
 				np.round(playerPos, 0), usablePlayerPos)
 
@@ -247,6 +247,7 @@ if __name__ == "__main__":
 
 						# TODO: Move more intelligently
 						agentHost.sendCommand("move 1")
+						# controller.lookAtVertically(realWoodPos)
 
 
 		for error in worldState.errors:

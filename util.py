@@ -8,7 +8,7 @@ def eprint(*args, **kwargs):
 
 import numpy as np
 
-from math import sqrt, fsum, radians, cos, sin
+from math import sqrt, fsum, radians, cos, sin, ceil, floor
 
 
 # Some constants that can be useful
@@ -91,10 +91,20 @@ def distanceH(vector1, vector2):
 
 
 
-def getPlayerPos(observation):
+def getPlayerPos(observation, getIntVersion=False):
 	""" Returns the position of the player from the observation as a np array. """
 	x, y, z = observation[u"XPos"], observation[u"YPos"], observation[u"ZPos"]
-	return np.array([x, y, z])
+
+	if getIntVersion:
+		# We need to floor x and z because minecraft sucks and the coordinate
+		# system is a bitch
+		x, z = floor(x), floor(z)
+		temp = np.round(np.array([x, y, z]), 0).astype(int)
+
+		print("x = {}, y = {}, z = {}, result = {}...".format(x, y, z, temp))
+		return temp
+	else:
+		return np.array([x, y, z])
 
 
 def getLookAt(observation, playerIsCrouching):
