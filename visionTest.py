@@ -15,7 +15,7 @@ from vision import *
 ENTITIES_KEY = "entities"
 
 
-def getRandomTree(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 7):
+def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 7):
 	"""
 	Returns random x, y, z, numLogs (fixed y) to use as a random tree spawn. The
 	spawnRange is used as an upper and lower limit to x, z, as seen from the
@@ -40,12 +40,28 @@ def getRandomTree(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 7):
 	numLogs = np.random.randint(3, maxLogs)		# Within attackable range...
 	return x, fixedY, z, numLogs
 
+def getTreeString(x, y, z, numLogs):
+	""" Returns a Malmo string to use in the mission XML to create a tree. """
+	leavesHeight = y + 4
+	treeHeight = y + numLogs
+	return """
+		<DrawingDecorator>
+			<DrawSphere x="{x}" y="{yLeaves}" z="{z}" radius="3" type="leaves" />
+			<DrawLine x1="{x}" y1="{y}" z1="{z}" x2="{x}" y2="{yTreeHeight}" z2="{z}" type="log" />
+		</DrawingDecorator>""".format(x=x, y=y, z=z, yLeaves=leavesHeight, yTreeHeight=treeHeight)
 
-def getMissionXML():
+
+def getMissionXML(numTrees = 2):
 	""" Generates mission XML with flat world and 1 crappy tree. """
 
 	# Get random tree position and height (number of log blocks)
-	x, y, z, numLogs = getRandomTree()
+	treeList = []
+
+	for tree in range(numTrees):
+		x, y, z, numLogs = getRandomTreeDetails()
+		treeList.append(getTreeString(x, y, z, numLogs))
+
+	treeString = "".join(treeList)
 
 	return """<?xml version="1.0" encoding="UTF-8" ?>
 		<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -65,15 +81,7 @@ def getMissionXML():
 
 				<ServerHandlers>
 					<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />
-
-					<DrawingDecorator>
-						<DrawSphere x="{x}" y="{yLeaves}" z="{z}" radius="3" type="leaves" />
-						<DrawLine x1="{x}" y1="{y}" z1="{z}" x2="{x}" y2="{yTreeHeight}" z2="{z}" type="log" />
-
-						<DrawLine x1="-6" y1="7" z1="-1" x2="-6" y2="7" z2="1" type="stone" />
-						<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
-					</DrawingDecorator>
-
+					{treeString}
 					<ServerQuitWhenAnyAgentFinishes />
 					<ServerQuitFromTimeUp timeLimitMs="60000" description="Ran out of time." />
 				</ServerHandlers>
@@ -105,8 +113,8 @@ def getMissionXML():
 					</ObservationFromGrid>
 				</AgentHandlers>
 			</AgentSection>
-		</Mission>""".format(x=x, y=y, z=z, yLeaves=y+4, yTreeHeight=y+numLogs,
-			entitiesName=ENTITIES_KEY, gridName=CUBE_OBS, gridSize=CUBE_SIZE)
+		</Mission>""".format(treeString=treeString, entitiesName=ENTITIES_KEY,
+			gridName=CUBE_OBS, gridSize=CUBE_SIZE)
 
 
 def getAgentHost():
@@ -160,13 +168,11 @@ if __name__ == "__main__":
 
 	# Setup agent host
 	agentHost = getAgentHost()
-	myMission = MalmoPython.MissionSpec(getMissionXML(), True)
-
-	# Optionally, set up a recording
-	myMissionRecord = setupRecording(agentHost)
 
 	# Start the mission, FOREVER:
 	while True:
+		myMission = MalmoPython.MissionSpec(getMissionXML(), True)
+		myMissionRecord = setupRecording(agentHost)
 		maxRetries = 3
 
 		for retry in range(maxRetries):
@@ -235,8 +241,8 @@ if __name__ == "__main__":
 
 					# Check if we can collect some wood spoils, and pick them up...
 					if ENTITIES_KEY in observation:
-						woodDropPositions = getEntityPositions(observation[ENTITIES_KEY],
-							BLOCK_WOOD)
+						woodDropPositions = getEntityPositions(playerPos,
+							observation[ENTITIES_KEY], BLOCK_WOOD)
 
 						if woodDropPositions != []:
 							controller.lookAt(woodDropPositions[0])
@@ -291,11 +297,16 @@ if __name__ == "__main__":
 							# print "MURT! distanceH is {}".format(distanceH(playerPos, realWoodPos))
 							agentHost.sendCommand("attack 0")
 							distanceEpsilon = 0.9
+							distanceToWood = distanceH(playerPos, realWoodPos)
 
-							if distanceH(playerPos, realWoodPos) > distanceEpsilon:
+							# Malmo already clips speeds > 1.0 to 1.0 maximum
+							movementSpeed = distanceToWood / 2.5
+
+							if distanceToWood > distanceEpsilon:
 								# Keep moving forward until we reach it
-								print "Moving towards new wood, possibly like a fucking moron!"
-								agentHost.sendCommand("move 0.5")
+								print "Moving towards new wood, possibly like a fucking moron! Speed = {}".format(
+									movementSpeed)
+								agentHost.sendCommand("move {}".format(movementSpeed))
 
 
 			for error in worldState.errors:
