@@ -13,6 +13,10 @@ from navigation import *
 from stateMachine import *
 import worldGen
 
+#this setting enables pre-exploration, which means all tree and lake locations
+#are known to the agents at the start.
+PRE_EXPLORE = True
+
 def getAgentHost():
 	""" Creates agent host connection and parses commandline arguments. """
 	agentHost = MalmoPython.AgentHost()
@@ -72,18 +76,10 @@ if __name__ == "__main__":
 
 	# Setup agent host
 	agentHost = getAgentHost()
-	lakes, lakeLocs = worldGen.genLakes()
-	# lakes = [worldGen.makeLake(12, 6, 2, 10), \
-	# 	    worldGen.makeLake(-4, 4, 16, 16), \
-	# 	    worldGen.makeLake(-10, 8, 20, 14), \
-	# 	    worldGen.makeLake(-4,22,12,2), \
-	# 	    worldGen.makeLake(-12,8,2,12), \
-	# 	    worldGen.makeLake(-14,10,2,4), \
-	# 	    worldGen.makeLake(-12,-22,8,8), \
-	# 	    worldGen.makeLake(12,-24,4,6), \
-	# 	    worldGen.makeLake(16,-22,2,4)]
 
-	grass= worldGen.genGrass()
+	#generate world
+	lakes, lakeLocs, lavaLocs = worldGen.genLakes()
+	grass = worldGen.genGrass()
 	trees, treelocs = worldGen.genTrees()
 	decs = grass + lakes + trees
 	decorator = worldGen.makeDecorator(decs)
@@ -127,6 +123,11 @@ if __name__ == "__main__":
 	navGraph = Graph(300, 300, 1)
 	navigator = Navigator(controller)
 	navigator.setNavGraph(navGraph)
+
+	if PRE_EXPLORE:
+		worldGen.bulkFlagRegion(navGraph, lakeLocs, "water")
+		worldGen.bulkFlagRegion(navGraph, lavaLocs, "lava")
+		worldGen.bulkFlagLoc(navGraph, treelocs, "log")
 
 	startTime = time.time()
 	routeSet = False

@@ -19,11 +19,11 @@ def makeTree(x,y,z):
 			<DrawLine x1="{x}" y1="{y}" z1="{z}" x2="{x}" y2="{y4}" z2="{z}" type="log" />
 			'''.format(x = x, y = y, y4 = y + 4, z = z)
 
-def makeLake(x,z,w,d):
+def makeLake(x,z,w,d, blockType = "water"):
 	return 	'''
-			<DrawCuboid x1="{x1}" y1="{y1}" z1="{z1}" x2 = "{x2}" y2 = "{y2}" z2 = "{z2}" type="water" />
+			<DrawCuboid x1="{x1}" y1="{y1}" z1="{z1}" x2 = "{x2}" y2 = "{y2}" z2 = "{z2}" type="{blockType}" />
 			<DrawCuboid x1="{x1}" y1="{y3}" z1="{z1}" x2 = "{x2}" y2 = "{y3}" z2 = "{z2}" type="air" />
-			'''.format(x1 = x, x2 = x + (w-1), y1 = 6, y2 = 5, y3 = 7, z1 = z, z2 = z + (d-1))
+			'''.format(x1 = x, x2 = x + (w-1), y1 = 6, y2 = 5, y3 = 7, z1 = z, z2 = z + (d-1), blockType = blockType)
 
 def makeGrass(x,y,z,w,d):
 	return '''
@@ -36,6 +36,7 @@ def setSeed(seed):
 def genLakes():
 	lakes = []
 	lakeLocs = []
+	lavaLocs = []
 	for ix in range(-5, 5):
 		for iz in range(-5, 5):
 			rng = random.randint(0, 5)
@@ -53,15 +54,15 @@ def genLakes():
 				lakes.append(makeLake(x2, z2, w2, d2))
 				lakeLocs.append((x2,z2,w2,d2))
 	#add boundaries
-	lakes.append(makeLake(-150, -150, 10, 300))
-	lakeLocs.append((-150, -150, 10, 300))
-	lakes.append(makeLake(140, -150, 10, 300))
-	lakeLocs.append((140, -150, 10, 300))
-	lakes.append(makeLake(-150, -150, 300, 10))
-	lakeLocs.append((-150, -150, 300, 10))
-	lakes.append(makeLake(-150, 140, 300, 10))
-	lakeLocs.append((-150, 140, 300, 10))
-	return lakes, lakeLocs
+	lakes.append(makeLake(-150, -150, 9, 299, "lava"))
+	lavaLocs.append((-150, -150, 9, 299))
+	lakes.append(makeLake(140, -150, 10, 299, "lava"))
+	lavaLocs.append((140, -150, 9, 299))
+	lakes.append(makeLake(-150, -150, 300, 9, "lava"))
+	lavaLocs.append((-150, -150, 299, 9))
+	lakes.append(makeLake(-150, 140, 299, 9, "lava"))
+	lavaLocs.append((-150, 140, 299, 9))
+	return lakes, lakeLocs, lavaLocs
 
 def genGrass():
 	grass = []
@@ -86,6 +87,20 @@ def genTrees():
 				trees.append(makeTree(x,7,z))
 				locs.append((x,z))
 	return trees, locs
+
+def bulkFlagRegion(graph, regions, flag):
+	for x,z,w,d in regions:
+		for ix in range(x, x+w+1):
+			for iz in range(z, z+d+1):
+				idX, idZ = graph.nodeIdAt(ix, iz)
+				node = graph.getNode(idX, idZ)
+				node.setFlag(flag)
+
+def bulkFlagLoc(graph, locations, flag):
+	for x,z in locations:
+		idX, idZ = graph.nodeIdAt(x, z)
+		node = graph.getNode(idX, idZ)
+		node.setFlag(flag)
 
 def getFlatWorldGenerator():
 	return """<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />"""
