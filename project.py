@@ -72,8 +72,12 @@ if __name__ == "__main__":
 
 	# Setup agent host
 	agentHost = getAgentHost()
+	lake = [worldGen.makeLake(0, 7, 25, 15, 8)]
+	trees = [worldGen.makeTree(-5, 7, 0), worldGen.makeTree(5, 7, 0)]
+	decs = lake + trees
+	decorator = worldGen.makeDecorator(decs)
 	missionXML = worldGen.getMissionXML(worldGen.getFlatWorldGenerator(), \
-		worldGen.getTreeDecorator())
+		decorator)
 	myMission = MalmoPython.MissionSpec(missionXML, True)
 
 	# Optionally, set up a recording
@@ -139,7 +143,8 @@ if __name__ == "__main__":
 			interestingBlocks = getInterestingBlocks(visionHandler)
 
 			navigator.updateFromVision(walkable, interestingBlocks, CUBE_SIZE)
-			navigator.update(autoMove = True)
+			if not navigator.update(autoMove = True):
+				routeSet = False
 
 
 			if time.time() - startTime > 20 and not routeSet:

@@ -1,3 +1,5 @@
+from PIL import Image
+
 def getTreeDecorator():
 	return \
 	"""<DrawingDecorator>
@@ -6,6 +8,20 @@ def getTreeDecorator():
 		<DrawLine x1="-6" y1="7" z1="-1" x2="-6" y2="7" z2="1" type="stone" />
 		<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
 	</DrawingDecorator>"""
+
+def makeDecorator(commands):
+	return   """<DrawingDecorator>{}</DrawingDecorator>""".format(''.join(commands))
+
+def makeTree(x,y,z):
+	return 	'''
+			<DrawSphere x="{x}" y="{y4}" z="{z}" radius="3" type="leaves" />
+			<DrawLine x1="{x}" y1="{y}" z1="{z}" x2="{x}" y2="{y4}" z2="{z}" type="log" />
+			'''.format(x = x, y = y, y4 = y + 4, z = z)
+
+def makeLake(x,y,z,w,d):
+	return 	'''
+			<DrawCuboid x1="{x1}" y1="{y1}" z1="{z1}" x2 = "{x2}" y2 = "{y2}" z2 = "{z2}" type="water" />
+			'''.format(x1 = x - w, x2 = x + w, y1 = y - 1, y2 = y - 2, z1 = z - d, z2 = z + d)
 
 def getFlatWorldGenerator():
 	return """<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />"""

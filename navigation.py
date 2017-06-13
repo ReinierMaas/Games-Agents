@@ -13,7 +13,7 @@ class Graph(object):
 	def genNode(self, x, z, graph, defaultHeight):
 		"""Generate a node with indices x, z, belonging to graph with given default height"""
 		node = WaypointNode((int((x - self.width/2) * self.density), \
-			defaultHeight,int((z - self.depth/2) * self.density)), 2.2, graph = graph)
+			defaultHeight,int((z - self.depth/2) * self.density)), 2, graph = graph)
 		#set the default node state to enabled, so it'll try to path-find through unexplored territory, assuming it can walk there.
 		node.enable()
 
@@ -89,10 +89,11 @@ class WaypointNode(object):
 			neighbors = []
 			neighbors.append(self.graph.getNode(idX, idZ + 1))
 			neighbors.append(self.graph.getNode(idX, idZ - 1))
-			neighbors.append(self.graph.getNode(idX + 1, idZ + 1))
-			neighbors.append(self.graph.getNode(idX + 1, idZ - 1))
-			neighbors.append(self.graph.getNode(idX - 1, idZ + 1))
-			neighbors.append(self.graph.getNode(idX - 1, idZ - 1))
+			# diagonal routes can cause drowning
+			# neighbors.append(self.graph.getNode(idX + 1, idZ + 1))
+			# neighbors.append(self.graph.getNode(idX + 1, idZ - 1))
+			# neighbors.append(self.graph.getNode(idX - 1, idZ + 1))
+			# neighbors.append(self.graph.getNode(idX - 1, idZ - 1))
 			neighbors.append(self.graph.getNode(idX + 1, idZ))
 			neighbors.append(self.graph.getNode(idX - 1, idZ))
 			if filterNodes:
@@ -326,7 +327,7 @@ class Navigator(object):
 			self.lastWaypoint.discovered = True
 
 		if self.target is not None:
-			if not self.target.enabled and len(self.route) > 0:
+			if (not self.target.enabled and len(self.route) > 0) or (len(self.route) > 1 and not self.route[0].enabled):
 				print "sub-target is no longer enabled, replanning required"
 				return False
 			if self.target == self.lastWaypoint or \
