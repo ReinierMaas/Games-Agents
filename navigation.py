@@ -129,11 +129,11 @@ class WaypointNode(object):
 		if flag in self.graph.flaggedNodes:
 			if self not in self.graph.flaggedNodes[flag]:
 				self.graph.flaggedNodes[flag].add(self)
-				print self
+				#print self
 
 		else:
 			self.graph.flaggedNodes[flag] = set([self])
-			print self
+			#print self
 
 def euclidianDistance(wp1, wp2):
 	"""returns the euclidian distance between 2 waypoints"""
