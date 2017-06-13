@@ -47,19 +47,19 @@ class Action:
 
 class Node:
     def __repr__(self):
-        return "\n(a{1} s{0}|{2})".format(self.state, list(self.doneActions), self.prev)
-    def __init__(self, state, prev, action, aset):
+        return "\n(a{0}|{1})".format(self.state, self.prev)
+    def __init__(self, state, prev, action):
         self.state=state # int dict
         self.prev=prev # Node
         self.action=action # Action
-        self.doneActions=aset# int set
 
 class Leaf:
     def __repr__(self):
-        return "leaf {0} {1}\n".format(self.prevAction, self.node)
-    def __init__(self, prevAction, node):
+        return "leaf {0} {1} {2}\n".format(self.prevAction, list(self.doneActions), self.node)
+    def __init__(self, prevAction, node, aset):
         self.prevAction=prevAction
         self.node=node # Node
+        self.doneActions=aset# int set
 
 def addDict(a, b):
     ret = {}
@@ -71,10 +71,10 @@ def addDict(a, b):
 
 # dijkstra's algorithm using priority queues
 def pathfind(goals, actions, startstate):
-    root = Node(startstate, None, None, set())
+    root = Node(startstate, None, None)
 
     leafs = [] # priority queue of leafs
-    heapq.heappush(leafs, (0, Leaf(None, root)))
+    heapq.heappush(leafs, (0, Leaf(None, root, set())))
 
     nodeexpantions = 0
 
@@ -87,11 +87,11 @@ def pathfind(goals, actions, startstate):
                 print leaf
                 return leaf
         for action in actions:
-            if action.available(leaf.node.state) and (action == leaf.prevAction or action not in leaf.node.doneActions):
-                aset = leaf.node.doneActions.copy()
+            if action.available(leaf.node.state) and (action == leaf.prevAction or action not in leaf.doneActions):
+                aset = leaf.doneActions.copy()
                 aset.add(action)
-                node = Node(addDict(leaf.node.state,action.expectation), leaf.node, action, aset)
-                heapq.heappush(leafs, (cost+action.cost, Leaf(action, node)))
+                node = Node(addDict(leaf.node.state,action.expectation), leaf.node, action)
+                heapq.heappush(leafs, (cost+action.cost, Leaf(action, node, aset)))
     return Leaf(0, root)
 
 # simple wrapper around pathfind to make it easier to use
@@ -129,7 +129,7 @@ def craftHoe(w):
 
 if __name__ == '__main__':
     goals = np.array([
-        Goal({'hoes':1}),
+        Goal({'hoes':2}),
         ])
     actions = np.array([
         Action("findTrees", findTrees,  {},           {'trees':1}),
