@@ -1,4 +1,4 @@
-from PIL import Image
+import random
 
 def getTreeDecorator():
 	return \
@@ -9,6 +9,7 @@ def getTreeDecorator():
 		<DrawLine x1="-6" y1="8" z1="-1" x2="-6" y2="8" z2="1" type="glass" />
 	</DrawingDecorator>"""
 
+
 def makeDecorator(commands):
 	return   """<DrawingDecorator>{}</DrawingDecorator>""".format(''.join(commands))
 
@@ -18,10 +19,64 @@ def makeTree(x,y,z):
 			<DrawLine x1="{x}" y1="{y}" z1="{z}" x2="{x}" y2="{y4}" z2="{z}" type="log" />
 			'''.format(x = x, y = y, y4 = y + 4, z = z)
 
-def makeLake(x,y,z,w,d):
+def makeLake(x,z,w,d):
 	return 	'''
 			<DrawCuboid x1="{x1}" y1="{y1}" z1="{z1}" x2 = "{x2}" y2 = "{y2}" z2 = "{z2}" type="water" />
-			'''.format(x1 = x - w, x2 = x + w, y1 = y - 1, y2 = y - 2, z1 = z - d, z2 = z + d)
+			<DrawCuboid x1="{x1}" y1="{y3}" z1="{z1}" x2 = "{x2}" y2 = "{y3}" z2 = "{z2}" type="air" />
+			'''.format(x1 = x, x2 = x + (w-1), y1 = 6, y2 = 5, y3 = 7, z1 = z, z2 = z + (d-1))
+
+def makeGrass(x,y,z,w,d):
+	return '''
+			<DrawCuboid x1="{x1}" y1="{y1}" z1="{z1}" x2 = "{x2}" y2 = "{y2}" z2 = "{z2}" type="tallgrass" />
+			'''.format(x1 = x, x2 = x + (w-1), y1 = y, y2 = y, z1 = z, z2 = z + (d-1))
+
+def setSeed(seed):
+	random.setSeed(seed)
+
+def genLakes():
+	lakes = []
+	lakeLocs = []
+	for ix in range(-5, 5):
+		for iz in range(-5, 5):
+			rng = random.randint(0, 5)
+			if rng == 1:
+				rngCenter = [random.randint(2,10), random.randint(2,10)]
+				xcenter, zcenter = rngCenter[0] + ix * 20, rngCenter[1] + iz * 20
+				w1 = random.randint(4, 20 - abs(10 - rngCenter[0]))
+				d1 = random.randint(4, 20 - abs(10 - rngCenter[1]))
+				w2 = random.randint(4, 20 - abs(10 - rngCenter[0]))
+				d2 = random.randint(4, 20 - abs(10 - rngCenter[1]))
+				x1, z1 = xcenter - w1/2, zcenter - d1/2
+				x2, z2 = xcenter - w2/2, zcenter - d2/2
+				lakes.append(makeLake(x1, z1, w1, d1))
+				lakeLocs.append((x1,z1,w1,d1))
+				lakes.append(makeLake(x2, z2, w2, d2))
+				lakeLocs.append((x2,z2,w2,d2))
+	return lakes, lakeLocs
+
+def genGrass():
+	grass = []
+	for ix in range(-20, 20):
+		for iz in range(-20, 20):
+			rng = random.randint(0,5)
+			if rng == 1:
+				rng2 = random.randint(3,7)
+				rng3 = random.randint(3,7)
+				x, z = ix * 5, iz * 5
+				grass.append(makeGrass(x, 7, z, rng2, rng3))
+	return grass
+
+def genTrees():
+	trees = []
+	locs = []
+	for ix in range(-10, 10):
+		for iz in range(-10, 10):
+			rng = random.randint(0,2)
+			if rng == 1:
+				x, z = ix * 10, iz * 10
+				trees.append(makeTree(x,7,z))
+				locs.append((x,z))
+	return trees, locs
 
 def getFlatWorldGenerator():
 	return """<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />"""
