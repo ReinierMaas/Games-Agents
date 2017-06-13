@@ -78,6 +78,7 @@ if __name__ == "__main__":
 	agentHost = getAgentHost()
 
 	#generate world
+	worldGen.setSeed(55)
 	lakes, lakeLocs, lavaLocs = worldGen.genLakes()
 	grass = worldGen.genGrass()
 	trees, treelocs = worldGen.genTrees()

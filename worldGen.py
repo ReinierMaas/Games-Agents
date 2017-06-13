@@ -31,7 +31,7 @@ def makeGrass(x,y,z,w,d):
 			'''.format(x1 = x, x2 = x + (w-1), y1 = y, y2 = y, z1 = z, z2 = z + (d-1))
 
 def setSeed(seed):
-	random.setSeed(seed)
+	random.seed(seed)
 
 def genLakes():
 	lakes = []
