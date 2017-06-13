@@ -56,9 +56,8 @@ class Node:
 
 class Leaf:
     def __repr__(self):
-        return "leaf {0} {1}\n".format(self.cost, self.node)
-    def __init__(self, cost, prevAction, node):
-        self.cost=cost # int
+        return "leaf {0} {1}\n".format(self.prevAction, self.node)
+    def __init__(self, prevAction, node):
         self.prevAction=prevAction
         self.node=node # Node
 
@@ -75,14 +74,13 @@ def pathfind(goals, actions, startstate):
     root = Node(startstate, None, None, set())
 
     leafs = [] # priority queue of leafs
-    heapq.heappush(leafs, Leaf(0, None, root))
+    heapq.heappush(leafs, (0, Leaf(None, root)))
 
     nodeexpantions = 0
 
     while leafs: # while not empty
         nodeexpantions+=1
-        leaf = heapq.heappop(leafs)
-        print leaf
+        (cost, leaf) = heapq.heappop(leafs)
         for goal in goals:
             if(goal.met(leaf.node.state)):
                 print 'node expantions: %d' % nodeexpantions
@@ -93,7 +91,7 @@ def pathfind(goals, actions, startstate):
                 aset = leaf.node.doneActions.copy()
                 aset.add(action)
                 node = Node(addDict(leaf.node.state,action.expectation), leaf.node, action, aset)
-                heapq.heappush(leafs, Leaf(leaf.cost+action.cost, action, node))
+                heapq.heappush(leafs, (cost+action.cost, Leaf(action, node)))
     return Leaf(0, root)
 
 # simple wrapper around pathfind to make it easier to use
