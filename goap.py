@@ -96,7 +96,7 @@ def pathfind(goals, actions, startstate):
 
 # simple wrapper around pathfind to make it easier to use
 def plan(goals, actions, startstate):
-    print 'starting'
+    print 'starting goap'
     starttime = time.time()
     leaf = pathfind(goals, actions, state)
     endtime = time.time()
@@ -109,23 +109,33 @@ def plan(goals, actions, startstate):
         node = node.prev
     return reversed(path)
 
+# python 2.7 enum
+class ActionReturn:
+    success, replanWithoutMe = range(2)
+
 def findTrees(w):
     print 'finding trees! find find...'
+    return ActionReturn.success
 
 def chopWood(w):
     print 'chopping wood! chop chop...'
+    return ActionReturn.success
 
 def craftTable(w):
     print 'crafting crafting table! table...'
+    return ActionReturn.success
 
 def craftPlank(w):
     print 'crafting planks! plank plank...'
+    return ActionReturn.success
 
 def craftSticks(w):
     print 'crafting sticks! stick stick...'
+    return ActionReturn.success
 
 def craftHoe(w):
     print 'crafting hoe! ho ho...'
+    return ActionReturn.success
 
 if __name__ == '__main__':
     goals = np.array([
@@ -142,5 +152,9 @@ if __name__ == '__main__':
     state = {}
     path = plan(goals, actions, state)
     for action in path:
-        action.action(None)
+        result = action.action(None)
+        if result == ActionReturn.success:
+            continue
+        if result == ActionReturn.replanWithoutMe:
+            continue # TODO: implement
 
