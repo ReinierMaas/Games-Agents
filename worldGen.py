@@ -52,6 +52,15 @@ def genLakes():
 				lakeLocs.append((x1,z1,w1,d1))
 				lakes.append(makeLake(x2, z2, w2, d2))
 				lakeLocs.append((x2,z2,w2,d2))
+	#add boundaries
+	lakes.append(makeLake(-150, -150, 10, 300))
+	lakeLocs.append((-150, -150, 10, 300))
+	lakes.append(makeLake(140, -150, 10, 300))
+	lakeLocs.append((140, -150, 10, 300))
+	lakes.append(makeLake(-150, -150, 300, 10))
+	lakeLocs.append((-150, -150, 300, 10))
+	lakes.append(makeLake(-150, 140, 300, 10))
+	lakeLocs.append((-150, 140, 300, 10))
 	return lakes, lakeLocs
 
 def genGrass():
