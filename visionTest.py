@@ -15,7 +15,7 @@ from vision import *
 ENTITIES_KEY = "entities"
 
 
-def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 7):
+def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 6):
 	"""
 	Returns random x, y, z, numLogs (fixed y) to use as a random tree spawn. The
 	spawnRange is used as an upper and lower limit to x, z, as seen from the
@@ -195,7 +195,7 @@ if __name__ == "__main__":
 			worldState = agentHost.getWorldState()
 
 		print "\nMission running - Spawned random tree for agent to chop down"
-		time.sleep(0.5)		# To allow observations and rendering to become ready
+		time.sleep(1.0)		# To allow observations and rendering to become ready
 
 
 		# Setup vision handler, controller, etc
@@ -208,6 +208,11 @@ if __name__ == "__main__":
 				# Get observation info
 				msg = worldState.observations[-1].text
 				observation = json.loads(msg)
+
+				if u"XPos" not in observation:
+					print "Fuck you Malmo, gimme mah playahPos"
+					continue
+
 				# print "observation = {}".format(observation)
 
 				# if ENTITIES_KEY in observation:
