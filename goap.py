@@ -1,5 +1,6 @@
 import numpy as np
 import heapq
+import time
 
 '''
 Okay, there are three levels of complexity we can choose
@@ -11,7 +12,8 @@ medium:   use integer state
             > actually, throwing lib away was easier
           - requires different A* heuristic
             > none, just be Dijkstra
-              bad heuristic is worse than no heuristic, can also result in sub-optimal paths
+              bad heuristic is worse than no heuristic, 
+              bad heuristic can also result in sub-optimal paths
 complex:  use custom state with user-supplied functions and heuristic 
           - probbably overkill
           - requires rewriting library
@@ -42,18 +44,19 @@ class Action:
 
 class Node:
     def __repr__(self):
-        return "({0}|{1})".format(self.state, self.prev)
-    def __init__(self, state, prev, action):
-        self.state=state # dictionary of integers
-        self.prev=prev # pointer to Node
-        self.action=action # pointer to action
+        return "(a{1} s{0}|{2})".format(self.state, list(self.doneActions), self.prev)
+    def __init__(self, state, prev, action, aset):
+        self.state=state # int dict
+        self.prev=prev # Node
+        self.action=action # Action
+        self.doneActions= aset# int set
 
 class Leaf:
     def __repr__(self):
         return "leaf {0} {1}\n".format(self.cost, self.node)
     def __init__(self, cost, node):
-        self.cost=cost # integer
-        self.node=node # pointer to Node
+        self.cost=cost # int
+        self.node=node # Node
 
 def addDict(a, b):
     ret = {}
@@ -63,29 +66,42 @@ def addDict(a, b):
         ret[key] = a.get(key,0) + b.get(key,0)
     return ret
 
-# dijkstra's algorithm
+# dijkstra's algorithm using priority queues
 def pathfind(goals, actions, startstate):
-    root = Node(startstate, None, None)
+    root = Node(startstate, None, None, set())
     
     leafs = [] # priority queue of leafs
     heapq.heappush(leafs, Leaf(0, root)) 
 
+    nodeexpantions = 0
+    prevActionIndex = -1
+
     while leafs: # while not empty
+        nodeexpantions+=1
         leaf = heapq.heappop(leafs)
         for goal in goals:
             if(goal.met(leaf.node.state)):
+                print 'node expantions: %d' % nodeexpantions
+                print leaf
                 return leaf
-        for action in actions:
-            if(action.available(leaf.node.state)):
-                node = Node(addDict(leaf.node.state,action.expectation), leaf.node, action)
+        for idx, action in enumerate(actions):
+            if action.available(leaf.node.state) and (idx not in leaf.node.doneActions):
+                aset = leaf.node.doneActions
+                if idx!=prevActionIndex:
+                    aset = aset.copy()
+                    aset.add(prevActionIndex)
+                    prevActionIndex = idx
+                node = Node(addDict(leaf.node.state,action.expectation), leaf.node, action, aset)
                 heapq.heappush(leafs, Leaf(leaf.cost+action.cost, node))
     return Leaf(0, root)
 
 # simple wrapper around pathfind to make it easier to use
 def plan(goals, actions, startstate):
     print 'starting'
+    starttime = time.time()
     leaf = pathfind(goals, actions, state)
-    print 'done'
+    endtime = time.time()
+    print 'done in %0.3f seconds' % (endtime-starttime)
     node = leaf.node
     path = []
     while node != None:
@@ -93,6 +109,9 @@ def plan(goals, actions, startstate):
             path.append(node.action)
         node = node.prev
     return reversed(path)
+
+def findTrees(w):
+    print 'finding trees! find find...'
 
 def chopWood(w):
     print 'chopping wood! chop chop...'
@@ -114,9 +133,10 @@ if __name__ == '__main__':
         Goal({'hoes':1}),
         ])
     actions = np.array([
+        Action(findTrees,  {},           {'trees':1}),
         Action(craftTable, {'planks':4}, {'tables':1, 'planks':-4}),
         Action(craftPlank, {'logs':1},   {'planks':4, 'logs':-1}),
-        Action(chopWood,   {},           {'logs':1}),
+        Action(chopWood,   {'trees':1},  {'trees':-1, 'logs':1}),
         Action(craftHoe,   {'tables':1, 'planks':2, 'sticks':2}, {'hoes':1,'planks':-2,'sticks':-2}),
         Action(craftSticks,{'planks':2}, {'sticks':4, 'planks':-1}),
         ])
