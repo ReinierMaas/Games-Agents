@@ -6,16 +6,19 @@ import sys
 import numpy as np
 
 
-
 # Some constants that can be useful
 PLAYER_EYES = 1.625  			# Player's eyes are at y = 1.625 blocks high
 PLAYER_EYES_CROUCHING = 1.5		# Player's eyes are at y = 1.5 when crouching
 
 
-# Offset in different coordinates between Malmo and Minecraft as can be
-# observed from the debug screen in Minecraft itself (F3)
-MALMO_OFFSET = np.array([-1, 1, 0])
+# This is a list of all transparant blocks that the agent can see through.
+TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
+	"torch", "ladder", "fence", "iron_bars", "glass_pane", "vines", "lily_pad",
+	"sign", "item_frame", "flower_pot", "skull", "armor_stand", "banner", "tall_grass",
+	"lever", "pressure_plate", "redstone_torch", "button", "trapdoor", "tripwire",
+	"tripwire_hook", "redstone", "rail", "beacon", "cauldron", "brewing_stand"]
 
+BLOCK_WOOD = "log"
 
 
 def getVectorLength(vector):
@@ -148,9 +151,10 @@ def getLineOfSightBlock(lineOfSightDict):
 
 def getEntityPositions(playerPos, entitiesList, entityToFind):
 	"""
-	Returns a list of numpy arrays where the requested entity/entities are, or
-	else an empty list of no entities can be found in the list. The list will
-	be sorted based on the distance to the entities (closest first in the list).
+	Returns a numpy array of numpy arrays where the requested entity/entities
+	are, or else an empty numpy array if no entities can be found in the list.
+	The array will be sorted based on the distance to the entities (closest
+	first in the list).
 	"""
 	positionsFound = []
 	distances = []
@@ -163,9 +167,10 @@ def getEntityPositions(playerPos, entitiesList, entityToFind):
 			distances.append(distanceH(playerPos, xyz))
 
 	# Now we sort the list based on the distance to the entity
-	# TODO: Sort...
-
-	return positionsFound
+	positionsFound = np.array(positionsFound)
+	distances = np.array(distances)
+	sortedIndices = distances.argsort()
+	return positionsFound[sortedIndices]
 
 
 def eprint(*args, **kwargs):

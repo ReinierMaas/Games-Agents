@@ -9,13 +9,12 @@ import errno
 import numpy as np
 
 from util import *
-from controller import *
-from vision import *
+from agentController import *
 
 ENTITIES_KEY = "entities"
 
 
-def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 6):
+def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 7):
 	"""
 	Returns random x, y, z, numLogs (fixed y) to use as a random tree spawn. The
 	spawnRange is used as an upper and lower limit to x, z, as seen from the
@@ -40,8 +39,9 @@ def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 6):
 	numLogs = np.random.randint(3, maxLogs)		# Within attackable range...
 	return x, fixedY, z, numLogs
 
+
 def getTreeString(x, y, z, numLogs):
-	""" Returns a Malmo string to use in the mission XML to create a tree. """
+	""" Returns a Malmo string to use in the mission XML to create a crappy tree. """
 	leavesHeight = y + 4
 	treeHeight = y + numLogs
 	return """
@@ -52,15 +52,20 @@ def getTreeString(x, y, z, numLogs):
 
 
 def getMissionXML(numTrees = 2):
-	""" Generates mission XML with flat world and 1 crappy tree. """
+	""" Generates mission XML with flat world and crappy trees. """
 
 	# Get random tree position and height (number of log blocks)
 	treeList = []
+	treePositions = []
+	totalLogs = 0
 
 	for tree in range(numTrees):
 		x, y, z, numLogs = getRandomTreeDetails()
+		treePositions.append(np.array([x, y, z]))
 		treeList.append(getTreeString(x, y, z, numLogs))
+		totalLogs += numLogs
 
+	print "Number of logs that will be spawned = {}".format(totalLogs)
 	treeString = "".join(treeList)
 
 	return """<?xml version="1.0" encoding="UTF-8" ?>
@@ -101,7 +106,7 @@ def getMissionXML(numTrees = 2):
 
 					<ObservationFromFullStats />
 					<ObservationFromNearbyEntities>
-						<Range name="{entitiesName}" xrange="40" yrange="40" zrange="40"/>
+						<Range name="{entitiesName}" xrange="30" yrange="30" zrange="30"/>
 					</ObservationFromNearbyEntities>
 					<ObservationFromRay />
 					<ObservationFromHotBar />
@@ -114,7 +119,7 @@ def getMissionXML(numTrees = 2):
 				</AgentHandlers>
 			</AgentSection>
 		</Mission>""".format(treeString=treeString, entitiesName=ENTITIES_KEY,
-			gridName=CUBE_OBS, gridSize=CUBE_SIZE)
+			gridName=CUBE_OBS, gridSize=CUBE_SIZE), treePositions
 
 
 def getAgentHost():
@@ -171,7 +176,8 @@ if __name__ == "__main__":
 
 	# Start the mission, FOREVER:
 	while True:
-		myMission = MalmoPython.MissionSpec(getMissionXML(), True)
+		missionXML, treePositions = getMissionXML()
+		myMission = MalmoPython.MissionSpec(missionXML, True)
 		myMissionRecord = setupRecording(agentHost)
 		maxRetries = 3
 
@@ -198,9 +204,8 @@ if __name__ == "__main__":
 		time.sleep(1.0)		# To allow observations and rendering to become ready
 
 
-		# Setup vision handler, controller, etc
-		visionHandler = VisionHandler(CUBE_SIZE)
-		controller = Controller(agentHost)
+		# Setup agent handler and chopped trees stuff
+		agent = AgentController(agentHost)
 
 		# Mission loop:
 		while worldState.is_mission_running:
@@ -209,40 +214,30 @@ if __name__ == "__main__":
 				msg = worldState.observations[-1].text
 				observation = json.loads(msg)
 
+				# if ENTITIES_KEY in observation:
+				# 	print "entities = {}".format(observation[ENTITIES_KEY])
+
 				if u"XPos" not in observation:
 					print "Fuck you Malmo, gimme mah playahPos"
 					continue
 
-				# print "observation = {}".format(observation)
+				agent.updateObservation(observation)
 
-				# if ENTITIES_KEY in observation:
-				# 	print "entities = {}".format(observation[ENTITIES_KEY])
+				# TODO: Finish function below and scrap everything below it...
+				# agent.chopTree(treePos)
 
-				playerIsCrouching = controller.isCrouching()
-				lookAt = getLookAt(observation, playerIsCrouching)
-
-				# Update vision and filter occluded blocks
-				controller.update(observation)
-				controller.setCrouch(False)
-				visionHandler.updateFromObservation(observation[CUBE_OBS])
-				visionHandler.filterOccluded(lookAt, playerIsCrouching)
 				playerPos = getPlayerPos(observation, False)
 				usablePlayerPos = getPlayerPos(observation, True)
-				# print "playerPos = {}, round = {}, final = {}".format(playerPos,
-				# 	np.round(playerPos, 0), usablePlayerPos)
-
-				# Print all the blocks that we can see
-				# print "blocks around us: \n{}".format(visionHandler)
 
 				# Look for wood
-				woodPositions = visionHandler.findWood()
+				woodPositions = agent.findWood()
 
-				if woodPositions == []:
+				if len(woodPositions) == 0:
 					# Shit, no wood visible/in range... keep moving then
 					# print "No wood in range!"
-					controller.setPitch(0)
-					agentHost.sendCommand("move 1")
-					agentHost.sendCommand("attack 0")
+					agent.controller.setPitch(0)
+					agent.controller.moveForward()
+					agent.controller.setAttackMode(False)
 
 					# Check if we can collect some wood spoils, and pick them up...
 					if ENTITIES_KEY in observation:
@@ -250,12 +245,12 @@ if __name__ == "__main__":
 							observation[ENTITIES_KEY], BLOCK_WOOD)
 
 						if woodDropPositions != []:
-							controller.lookAt(woodDropPositions[0])
-							agentHost.sendCommand("move 1")
+							agent.controller.lookAt(woodDropPositions[0])
+							agent.controller.moveForward()
 						else:
 							print "Chopped tree down and collected all wood!"
-							controller.setPitch(0)
-							agentHost.sendCommand("move 0")
+							agent.controller.setPitch(0)
+							agent.controller.stopMoving()
 							time.sleep(1.5)
 							agentHost.sendCommand("quit")
 
@@ -263,16 +258,8 @@ if __name__ == "__main__":
 					# Look at the first wood block
 					usableWoodPos = usablePlayerPos + woodPositions[0]
 					realWoodPos = playerPos + woodPositions[0]
-					# print "usableWoodPos = {}, realWoodPos = {}".format(usableWoodPos,
-					# 	realWoodPos)
 					tempx, tempy, tempz = woodPositions[0]
-					# print "wood[0] at {}, {}, {}: {}".format(tempx, tempy, tempz,
-					# 	visionHandler.isBlock(tempx, tempy, tempz, BLOCK_WOOD))
-
-					# print "Target wood found at relative position {} and absolute position {}".format(
-					# 	woodPositions[0], usableWoodPos)
-
-					controller.lookAt(realWoodPos)
+					agent.controller.lookAt(realWoodPos)
 
 					# Check line of sight to see if we have targeted the right block
 					if u"LineOfSight" in observation:
@@ -280,39 +267,36 @@ if __name__ == "__main__":
 						losBlock = getLineOfSightBlock(lineOfSightDict)
 						relBlockPos = losBlock - usablePlayerPos
 						x, y, z = relBlockPos
-						visionBlockIsWood = visionHandler.isBlock(x, y, z, BLOCK_WOOD)
+						visionBlockIsWood = agent.visionHandler.isBlock(x, y, z,
+							BLOCK_WOOD)
 						losBlockType = lineOfSightDict[u"type"]
-						# print "LOS block = {}, LOS type = {}, isWood = {}, target = {}".format(
-						# 	losBlock, losBlockType, visionBlockIsWood, usableWoodPos)
 
 						# If we are standing close enough to the wood block, start
 						# punching it,
 						inRange = lineOfSightDict[u"inRange"]
-						# print "relBlockPos = {} {} {}, inRange = {}".format(x, y, z,
-						# 	inRange)
 
-						if inRange and ((losBlock == usableWoodPos).all() or visionBlockIsWood or losBlockType == BLOCK_WOOD):
+						if inRange and ((losBlock == usableWoodPos).all() or \
+						visionBlockIsWood or losBlockType == BLOCK_WOOD):
+
 							print "Chopping tree down!!!!"
-							agentHost.sendCommand("move 0")
-							controller.lookAt(realWoodPos)
-							agentHost.sendCommand("attack 1")
+							agent.controller.stopMoving()
+							agent.controller.lookAt(realWoodPos)
+							agent.controller.setAttackMode(True)
 						else:
 							# If the distance between the wood block and our position
 							# is too far away, we need to towards it
-							# print "MURT! distanceH is {}".format(distanceH(playerPos, realWoodPos))
-							agentHost.sendCommand("attack 0")
+							agent.controller.setAttackMode(False)
 							distanceEpsilon = 0.9
 							distanceToWood = distanceH(playerPos, realWoodPos)
 
 							# Malmo already clips speeds > 1.0 to 1.0 maximum
-							movementSpeed = distanceToWood / 2.5
+							movementSpeed = distanceToWood / 3.0
 
 							if distanceToWood > distanceEpsilon:
 								# Keep moving forward until we reach it
 								print "Moving towards new wood, possibly like a fucking moron! Speed = {}".format(
 									movementSpeed)
-								agentHost.sendCommand("move {}".format(movementSpeed))
-
+								agent.controller.moveForward(movementSpeed)
 
 			for error in worldState.errors:
 				print "Error:", error.text

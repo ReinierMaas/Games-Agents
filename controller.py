@@ -21,10 +21,12 @@ class Controller(object):
 		self.yaw = 0.0
 		self.pitch = 0.0
 		self.location = np.array([0, 0, 0], dtype=float)
-		self.crouch = 0
+		self.crouching = 0
+
 
 	def getLocation(self):
 		return (self.location[0], self.location[1], self.location[2])
+
 
 	def update(self, observation):
 		""" Updates agent pitch, yaw and position based on observation. """
@@ -76,7 +78,7 @@ class Controller(object):
 
 
 	def lookAtVertically(self, position):
-		eyes = np.array([0, PLAYER_EYES_CROUCHING if self.crouch else PLAYER_EYES, 0])
+		eyes = np.array([0, PLAYER_EYES_CROUCHING if self.crouching else PLAYER_EYES, 0])
 		dx, dy, dz = position - (self.location + eyes)
 		dh = sqrt(dx**2 + dz**2)
 
@@ -96,10 +98,37 @@ class Controller(object):
 		self.lookAtVertically(position)
 		self.lookAtHorizontally(position)
 
-	def setCrouch(self, crouching):
-		""" Makes the agent crouch when True. """
-		self.crouch = int(bool(crouching))
-		self.agent.sendCommand("crouch {}".format(self.crouch))
+
+	def setCrouchMode(self, crouching):
+		""" Makes the agent crouch when True, or stops crouching when False. """
+		self.crouching = int(bool(crouching))
+		self.agent.sendCommand("crouch {}".format(self.crouching))
+
 
 	def isCrouching(self):
-		return self.crouch
+		return self.crouching
+
+
+	def setAttackMode(self, attacking):
+		""" Makes the agent attack when True, or stops attacking when False. """
+		self.attacking = int(bool(attacking))
+		self.agent.sendCommand("attack {}".format(self.attacking))
+
+
+	def isAttacking(self):
+		return self.attacking
+
+
+	def moveForward(self, movementSpeed = 1.0):
+		""" Starts moving the agent forward. Ensure that movementSpeed >= 0.0 """
+		self.movementSpeed = movementSpeed
+		self.agent.sendCommand("move {}".format(movementSpeed))
+
+
+	def stopMoving(self):
+		""" Stops the agent from moving forward. """
+		self.moveForward(0.0)
+
+
+	def isMoving(self):
+		return self.movementSpeed != 0.0
