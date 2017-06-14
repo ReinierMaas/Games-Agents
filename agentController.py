@@ -95,6 +95,7 @@ class AgentController(object):
 		losBlock = getLineOfSightBlock(lineOfSightDict)
 		inRange = lineOfSightDict[u"inRange"]
 		losBlockIsWood = lineOfSightDict[u"type"] == BLOCK_WOOD
+		print "LOS Dict = {}".format(lineOfSightDict)
 		print "losBlock = {}, inRange = {}, isWood = {}".format(losBlock,
 			inRange, losBlockIsWood)
 

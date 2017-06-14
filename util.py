@@ -146,7 +146,7 @@ def getLineOfSightBlock(lineOfSightDict, getIntVersion=True):
 	# We offset x by -1.0 because minecraft has a shitty coordinate system etc
 	losBlock = np.array([lineOfSightDict[u"x"] - 0.1, lineOfSightDict[u"y"],
 		lineOfSightDict[u"z"]]) - 0.1
-	print("util: losBlock = {}".format(losBlock))
+	# print("util: losBlock = {}".format(losBlock))
 	return np.round(losBlock).astype(int) if getIntVersion else losBlock
 
 

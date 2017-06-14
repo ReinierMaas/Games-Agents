@@ -229,7 +229,7 @@ if __name__ == "__main__":
 				agent.updateObservation(observation)
 
 				if u"LineOfSight" in observation:
-					print "LOS = {}".format(observation[u"LineOfSight"])
+					# print "LOS = {}".format(observation[u"LineOfSight"])
 					# TODO: Finish function below and scrap everything below it...
 					agent.chopTree(observation[u"LineOfSight"], treePos)
 				else:
