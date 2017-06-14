@@ -140,12 +140,13 @@ def getLookAt(observation, playerIsCrouching):
 
 
 
-def getLineOfSightBlock(lineOfSightDict):
+def getLineOfSightBlock(lineOfSightDict, getIntVersion=True):
 	""" Returns real position of the line of sight block as an int np array. """
 
 	# We offset x by -1.0 because minecraft has a shitty coordinate system etc
-	return np.array([lineOfSightDict[u"x"] - 1.0, lineOfSightDict[u"y"],
-		lineOfSightDict[u"z"]]).astype(int)
+	losBlock = np.array([lineOfSightDict[u"x"] - 1.0, lineOfSightDict[u"y"],
+		lineOfSightDict[u"z"]])
+	return losBlock.astype(int) if getIntVersion else losBlock
 
 
 

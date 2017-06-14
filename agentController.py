@@ -26,7 +26,6 @@ class AgentController(object):
 
 	def updateObservation(self, observation):
 		""" Updates handlers with observations. """
-		self.observation = observation
 		self.controller.update(observation)
 		self.visionHandler.updateFromObservation(observation[CUBE_OBS])
 		self.playerPos = getPlayerPos(observation, False)
@@ -38,7 +37,7 @@ class AgentController(object):
 		return self.visionHandler.findBlocks(BLOCK_WOOD)
 
 
-	def chopTree(self, treePosition = None):
+	def chopTree(self, lineOfSightDict, treePosition = None):
 		"""
 		Chops down 1 tree and collects all the logs from that tree. If no tree
 		position is given (np array with x, y, z position), then the agent
@@ -50,86 +49,91 @@ class AgentController(object):
 		fully chopped down. This function should be called in a loop.
 		"""
 
-		# Find all the wood in our vicinity, also useful for later
+		# Find all the wood in our vicinity
 		woodPositions = self.findWood()
 
 		if treePosition is None:
+			print "GIMME TREE"
+
 			if woodPositions != []:
-				treePosition = woodPositions[0]
+				treePosition = woodPositions[0] + self.intPlayerPos
 			else:
-				# TODO: Look a tree in the navigation/waypoint stuff...
+				# TODO: Look for a tree in the navigation/waypoint stuff...
 				print "Not implemented yet!"
 				return False
 
-		# Check if we have the tree targeted in our LOS, and if its in range
+		print "woodPositions = {}".format(woodPositions)
+
+		# Figure out if tree is in view distance, and thus figure out if we're
+		# able to get the rest of the logs of the tree.
 		distanceToTree = distanceH(self.playerPos, treePosition)
 		movementSpeed = distanceToTree / 3.0
+		treeLogPositions = [treePosition]
+		viewDistance = sqrt(3 * (CUBE_SIZE + 1)**2)
 
-		if u"LineOfSight" in self.observation:
-			lineOfSightDict = self.observation[u"LineOfSight"]
-			losBlock = getLineOfSightBlock(lineOfSightDict)
+		if getVectorDistance(self.intPlayerPos, treePosition) <= viewDistance:
+			treeX, treeY, treeZ = treePosition
 
-			if (losBlock == treePosition).all():
+			# Tree is visible, get rest of the log blocks of it
+			for logBlock in woodPositions:
+				blockX, blockY, blockZ = self.intPlayerPos + logBlock
+
+				if treeX == blockX and treeZ == blockZ:
+					treeLogPositions.append(logBlock)
+		else:
+			# Tree is outside our view distance, move towards it!
+			# TODO: Use proper navigation
+			print "Tree is outside view distance, moving towards it!"
+			self.controller.lookAt(treePosition)
+			self.controller.moveForward()
+			return True
+
+		print "Logs of tree = {}".format(treeLogPositions)
+
+		losBlock = getLineOfSightBlock(lineOfSightDict)
+		inRange = lineOfSightDict[u"inRange"]
+		losBlockIsWood = lineOfSightDict[u"type"] == BLOCK_WOOD
+		print "Murt"
+
+		# Check if we have targeted one of the logs of the tree
+		targetedOneBlock = False
+
+		for logBlock in treeLogPositions:
+			if (losBlock == logBlock).all():
 				# Yes, we have it targeted, check if its in range and if its wood
-				inRange = lineOfSightDict[u"inRange"]
-				losBlockType = lineOfSightDict[u"type"]
+				print "Yes, we have block {} targeted!".format(losBlock)
+				targetedOneBlock = True
 
 				if inRange:
-					if losBlockType == BLOCK_WOOD:
+					if losBlockIsWood:
 						# Stop moving and chop it down
+						print "Looking at target tree, chopping it down!"
 						self.controller.stopMoving()
-						self.controller.setAttackMode(True)
-					else:
-						# In range but not wood, keep moving?
-						# TODO: Figure out something smarter, aka navigation
 						self.controller.lookAt(treePosition)
-						self.controller.moveForward(movementSpeed)
+						self.controller.setAttackMode(True)
+						return True
+					else:
+						# In range but not wood, so that means it has been
+						# replaced by something else, since our vision says
+						# that it should be a log block
+						print "Expected log at {} but got {}".format(
+							logBlock, lineOfSightDict[u"type"])
+						continue
+				else:
+					# Not in range, move towards it
+					# TODO: Use real navigation...
+					print "Tree not in range, moving towards it..."
+					self.controller.lookAt(logBlock)
+					self.controller.moveForward(movementSpeed)
+					return True
 
-		# Check distance to tree and move towards it
-		self.controller.lookAt(treePosition)
-		self.controller.moveForward(movementSpeed)
+		if not targetedOneBlock:
+			print "We failed to target the tree, aiming for it now..."
+			self.controller.lookAt(treePosition)
+			return True
 
-		# Look at the first wood block
-		usableWoodPos = usablePlayerPos + woodPositions[0]
-		realWoodPos = playerPos + woodPositions[0]
-		tempx, tempy, tempz = woodPositions[0]
-		controller.lookAt(realWoodPos)
+		# We've gotten all of the blocks of the tree, tree is down!
+		print "Got all logs of this tree!"
 
-		# Check line of sight to see if we have targeted the right block
-		if u"LineOfSight" in observation:
-			lineOfSightDict = observation[u"LineOfSight"]
-			losBlock = getLineOfSightBlock(lineOfSightDict)
-			relBlockPos = losBlock - usablePlayerPos
-			x, y, z = relBlockPos
-			visionBlockIsWood = visionHandler.isBlock(x, y, z, BLOCK_WOOD)
-			losBlockType = lineOfSightDict[u"type"]
-
-			# If we are standing close enough to the wood block, start
-			# punching it,
-			inRange = lineOfSightDict[u"inRange"]
-
-			if inRange and ((losBlock == usableWoodPos).all() or visionBlockIsWood \
-			or losBlockType == BLOCK_WOOD):
-
-				print "Chopping tree down!!!!"
-				agentHost.sendCommand("move 0")
-				controller.lookAt(realWoodPos)
-				agentHost.sendCommand("attack 1")
-			else:
-				# If the distance between the wood block and our position
-				# is too far away, we need to towards it
-				agentHost.sendCommand("attack 0")
-				distanceEpsilon = 0.9
-				distanceToWood = distanceH(playerPos, realWoodPos)
-
-				# Malmo already clips speeds > 1.0 to 1.0 maximum
-				movementSpeed = distanceToWood / 3.0
-
-				if distanceToWood > distanceEpsilon:
-					# Keep moving forward until we reach it
-					print "Moving towards new wood, possibly like a fucking moron! Speed = {}".format(
-						movementSpeed)
-					agentHost.sendCommand("move {}".format(movementSpeed))
-
-		# Then we collect the log spoils
+		# TODO: Check log drops and pick them up
 

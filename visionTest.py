@@ -206,6 +206,9 @@ if __name__ == "__main__":
 
 		# Setup agent handler and chopped trees stuff
 		agent = AgentController(agentHost)
+		treePos = treePositions[0]
+		print "Using treePos = {}".format(treePos)
+		agent.controller.setPitch(20.0)
 
 		# Mission loop:
 		while worldState.is_mission_running:
@@ -213,90 +216,98 @@ if __name__ == "__main__":
 				# Get observation info
 				msg = worldState.observations[-1].text
 				observation = json.loads(msg)
+				# print "observation = {}".format(observation)
 
 				# if ENTITIES_KEY in observation:
 				# 	print "entities = {}".format(observation[ENTITIES_KEY])
 
 				if u"XPos" not in observation:
 					print "Fuck you Malmo, gimme mah playahPos"
+					time.sleep(0.1)
 					continue
 
 				agent.updateObservation(observation)
 
-				# TODO: Finish function below and scrap everything below it...
-				# agent.chopTree(treePos)
-
-				playerPos = getPlayerPos(observation, False)
-				usablePlayerPos = getPlayerPos(observation, True)
-
-				# Look for wood
-				woodPositions = agent.findWood()
-
-				if len(woodPositions) == 0:
-					# Shit, no wood visible/in range... keep moving then
-					# print "No wood in range!"
-					agent.controller.setPitch(0)
-					agent.controller.moveForward()
-					agent.controller.setAttackMode(False)
-
-					# Check if we can collect some wood spoils, and pick them up...
-					if ENTITIES_KEY in observation:
-						woodDropPositions = getEntityPositions(playerPos,
-							observation[ENTITIES_KEY], BLOCK_WOOD)
-
-						if woodDropPositions != []:
-							agent.controller.lookAt(woodDropPositions[0])
-							agent.controller.moveForward()
-						else:
-							print "Chopped tree down and collected all wood!"
-							agent.controller.setPitch(0)
-							agent.controller.stopMoving()
-							time.sleep(1.5)
-							agentHost.sendCommand("quit")
-
+				if u"LineOfSight" in observation:
+					print "LOS = {}".format(observation[u"LineOfSight"])
+					# TODO: Finish function below and scrap everything below it...
+					agent.chopTree(observation[u"LineOfSight"], treePos)
 				else:
-					# Look at the first wood block
-					usableWoodPos = usablePlayerPos + woodPositions[0]
-					realWoodPos = playerPos + woodPositions[0]
-					tempx, tempy, tempz = woodPositions[0]
-					agent.controller.lookAt(realWoodPos)
+					print "Y U NO GIVE LINEOFSIGHT?"
 
-					# Check line of sight to see if we have targeted the right block
-					if u"LineOfSight" in observation:
-						lineOfSightDict = observation[u"LineOfSight"]
-						losBlock = getLineOfSightBlock(lineOfSightDict)
-						relBlockPos = losBlock - usablePlayerPos
-						x, y, z = relBlockPos
-						visionBlockIsWood = agent.visionHandler.isBlock(x, y, z,
-							BLOCK_WOOD)
-						losBlockType = lineOfSightDict[u"type"]
+				# continue
 
-						# If we are standing close enough to the wood block, start
-						# punching it,
-						inRange = lineOfSightDict[u"inRange"]
+				# playerPos = getPlayerPos(observation, False)
+				# usablePlayerPos = getPlayerPos(observation, True)
 
-						if inRange and ((losBlock == usableWoodPos).all() or \
-						visionBlockIsWood or losBlockType == BLOCK_WOOD):
+				# # Look for wood
+				# woodPositions = agent.findWood()
 
-							print "Chopping tree down!!!!"
-							agent.controller.stopMoving()
-							agent.controller.lookAt(realWoodPos)
-							agent.controller.setAttackMode(True)
-						else:
-							# If the distance between the wood block and our position
-							# is too far away, we need to towards it
-							agent.controller.setAttackMode(False)
-							distanceEpsilon = 0.9
-							distanceToWood = distanceH(playerPos, realWoodPos)
+				# if len(woodPositions) == 0:
+				# 	# Shit, no wood visible/in range... keep moving then
+				# 	# print "No wood in range!"
+				# 	agent.controller.setPitch(0)
+				# 	agent.controller.moveForward()
+				# 	agent.controller.setAttackMode(False)
 
-							# Malmo already clips speeds > 1.0 to 1.0 maximum
-							movementSpeed = distanceToWood / 3.0
+				# 	# Check if we can collect some wood spoils, and pick them up...
+				# 	if ENTITIES_KEY in observation:
+				# 		woodDropPositions = getEntityPositions(playerPos,
+				# 			observation[ENTITIES_KEY], BLOCK_WOOD)
 
-							if distanceToWood > distanceEpsilon:
-								# Keep moving forward until we reach it
-								print "Moving towards new wood, possibly like a fucking moron! Speed = {}".format(
-									movementSpeed)
-								agent.controller.moveForward(movementSpeed)
+				# 		if woodDropPositions != []:
+				# 			agent.controller.lookAt(woodDropPositions[0])
+				# 			agent.controller.moveForward()
+				# 		else:
+				# 			print "Chopped tree down and collected all wood!"
+				# 			agent.controller.setPitch(0)
+				# 			agent.controller.stopMoving()
+				# 			time.sleep(1.5)
+				# 			agentHost.sendCommand("quit")
+
+				# else:
+				# 	# Look at the first wood block
+				# 	usableWoodPos = usablePlayerPos + woodPositions[0]
+				# 	realWoodPos = playerPos + woodPositions[0]
+				# 	tempx, tempy, tempz = woodPositions[0]
+				# 	agent.controller.lookAt(realWoodPos)
+
+				# 	# Check line of sight to see if we have targeted the right block
+				# 	if u"LineOfSight" in observation:
+				# 		lineOfSightDict = observation[u"LineOfSight"]
+				# 		losBlock = getLineOfSightBlock(lineOfSightDict)
+				# 		relBlockPos = losBlock - usablePlayerPos
+				# 		x, y, z = relBlockPos
+				# 		visionBlockIsWood = agent.visionHandler.isBlock(x, y, z,
+				# 			BLOCK_WOOD)
+				# 		losBlockType = lineOfSightDict[u"type"]
+
+				# 		# If we are standing close enough to the wood block, start
+				# 		# punching it,
+				# 		inRange = lineOfSightDict[u"inRange"]
+
+				# 		if inRange and ((losBlock == usableWoodPos).all() or \
+				# 		visionBlockIsWood or losBlockType == BLOCK_WOOD):
+
+				# 			print "Chopping tree down!!!!"
+				# 			agent.controller.stopMoving()
+				# 			agent.controller.lookAt(realWoodPos)
+				# 			agent.controller.setAttackMode(True)
+				# 		else:
+				# 			# If the distance between the wood block and our position
+				# 			# is too far away, we need to towards it
+				# 			agent.controller.setAttackMode(False)
+				# 			distanceEpsilon = 0.9
+				# 			distanceToWood = distanceH(playerPos, realWoodPos)
+
+				# 			# Malmo already clips speeds > 1.0 to 1.0 maximum
+				# 			movementSpeed = distanceToWood / 3.0
+
+				# 			if distanceToWood > distanceEpsilon:
+				# 				# Keep moving forward until we reach it
+				# 				print "Moving towards new wood, possibly like a fucking moron! Speed = {}".format(
+				# 					movementSpeed)
+				# 				agent.controller.moveForward(movementSpeed)
 
 			for error in worldState.errors:
 				print "Error:", error.text
