@@ -208,7 +208,6 @@ if __name__ == "__main__":
 		agent = AgentController(agentHost)
 		treePos = treePositions[0]
 		print "Using treePos = {}".format(treePos)
-		agent.controller.setPitch(20.0)
 
 		# Mission loop:
 		while worldState.is_mission_running:
@@ -224,6 +223,7 @@ if __name__ == "__main__":
 				if u"XPos" not in observation:
 					print "Fuck you Malmo, gimme mah playahPos"
 					time.sleep(0.1)
+					worldState = agentHost.getWorldState()
 					continue
 
 				agent.updateObservation(observation)
@@ -234,8 +234,9 @@ if __name__ == "__main__":
 					agent.chopTree(observation[u"LineOfSight"], treePos)
 				else:
 					print "Y U NO GIVE LINEOFSIGHT?"
+					agent.controller.setPitch(45)
 
-				# continue
+				# TODO: Get rid of code below
 
 				# playerPos = getPlayerPos(observation, False)
 				# usablePlayerPos = getPlayerPos(observation, True)

@@ -30,6 +30,8 @@ class AgentController(object):
 		self.visionHandler.updateFromObservation(observation[CUBE_OBS])
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
+		print "self.playerPos = {}, self.intPlayerPos = {}".format(
+			self.playerPos, self.intPlayerPos)
 
 
 	def findWood(self):
@@ -93,7 +95,8 @@ class AgentController(object):
 		losBlock = getLineOfSightBlock(lineOfSightDict)
 		inRange = lineOfSightDict[u"inRange"]
 		losBlockIsWood = lineOfSightDict[u"type"] == BLOCK_WOOD
-		print "Murt"
+		print "losBlock = {}, inRange = {}, isWood = {}".format(losBlock,
+			inRange, losBlockIsWood)
 
 		# Check if we have targeted one of the logs of the tree
 		targetedOneBlock = False
@@ -109,7 +112,7 @@ class AgentController(object):
 						# Stop moving and chop it down
 						print "Looking at target tree, chopping it down!"
 						self.controller.stopMoving()
-						self.controller.lookAt(treePosition)
+						# self.controller.lookAt(treePosition)
 						self.controller.setAttackMode(True)
 						return True
 					else:
@@ -123,13 +126,17 @@ class AgentController(object):
 					# Not in range, move towards it
 					# TODO: Use real navigation...
 					print "Tree not in range, moving towards it..."
+					self.controller.setAttackMode(False)
 					self.controller.lookAt(logBlock)
 					self.controller.moveForward(movementSpeed)
 					return True
 
 		if not targetedOneBlock:
 			print "We failed to target the tree, aiming for it now..."
-			self.controller.lookAt(treePosition)
+			self.controller.setAttackMode(False)
+			difference = treePosition - losBlock
+			self.controller.lookAt(treePosition + difference * 0.5)
+			# self.controller.lookAt(treePosition)
 			return True
 
 		# We've gotten all of the blocks of the tree, tree is down!

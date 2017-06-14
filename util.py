@@ -144,9 +144,10 @@ def getLineOfSightBlock(lineOfSightDict, getIntVersion=True):
 	""" Returns real position of the line of sight block as an int np array. """
 
 	# We offset x by -1.0 because minecraft has a shitty coordinate system etc
-	losBlock = np.array([lineOfSightDict[u"x"] - 1.0, lineOfSightDict[u"y"],
-		lineOfSightDict[u"z"]])
-	return losBlock.astype(int) if getIntVersion else losBlock
+	losBlock = np.array([lineOfSightDict[u"x"] - 0.1, lineOfSightDict[u"y"],
+		lineOfSightDict[u"z"]]) - 0.1
+	print("util: losBlock = {}".format(losBlock))
+	return np.round(losBlock).astype(int) if getIntVersion else losBlock
 
 
 
