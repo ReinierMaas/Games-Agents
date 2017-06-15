@@ -22,9 +22,11 @@ class Controller(object):
 		self.pitch = 0.0
 		self.location = np.array([0, 0, 0], dtype=float)
 		self.crouching = 0
+		self.speed = 0
 
 
 	def getLocation(self):
+		"""Get the location as tuple"""
 		return (self.location[0], self.location[1], self.location[2])
 
 
@@ -57,7 +59,10 @@ class Controller(object):
 
 	def setYaw(self, newYaw):
 		""" Makes the agent look at a given yaw value. """
-		# print "Set new yaw: {}".format(newYaw)
+		if int(self.yaw) == int(newYaw):
+			return
+
+		#print "Set new yaw: {}".format(newYaw)
 		self.agent.sendCommand("setYaw {}".format(newYaw))
 
 
@@ -132,3 +137,8 @@ class Controller(object):
 
 	def isMoving(self):
 		return self.movementSpeed != 0.0
+		return self.crouch
+
+	def move(self, speed):
+		self.agent.sendCommand("move {}".format(speed))
+		self.speed = speed
