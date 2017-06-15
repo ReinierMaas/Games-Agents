@@ -231,7 +231,8 @@ if __name__ == "__main__":
 				if u"LineOfSight" in observation:
 					# print "LOS = {}".format(observation[u"LineOfSight"])
 					# TODO: Finish function below and scrap everything below it...
-					agent.chopTree(observation[u"LineOfSight"], treePos)
+					agent.destroyBlock(observation[u"LineOfSight"], BLOCK_WOOD,
+						treePos)
 				else:
 					print "Y U NO GIVE LINEOFSIGHT?"
 					agent.controller.setPitch(45)
