@@ -10,13 +10,17 @@ from util import *
 ################################################################################
 # Configuration for observation cube and vision handling
 ################################################################################
-CUBE_OBS = "cube10"				# Name that will be used in XML/JSON
-CUBE_SIZE = 6 					# Size in 1 direction
+CUBE_OBS = "vision_cube"		# Name that will be used in XML/JSON
+CUBE_SIZE = 6 					# Number of visible blocks in 1 direction
+
+ENTITIES_OBS = "entities"		# Name that will be used in XML/JSON
+ENTITIES_RANGE = 25				# Number of blocks in 1 direction that we can
+								# observe entities from
 
 
 
 ################################################################################
-# Main Vision handling class
+# Main Vision handling class (blocks)
 ################################################################################
 
 class VisionHandler(object):
@@ -43,8 +47,18 @@ class VisionHandler(object):
 		return "{}".format(self.matrix)
 
 
-	def updateFromObservation(self, cubeObservation):
-		""" Converts the 1D list of blocks into our 3D matrix. """
+	def updateFromObservation(self, observation):
+		""" Converts the 1D list of vision cube blocks into our 3D matrix. """
+
+		if CUBE_OBS not in observation:
+			print "\n\n\n"
+			print "============================================================"
+			print "Can you please fuck off and give me my observation cube???"
+			print "============================================================"
+			print "\n\n\n"
+			return
+
+		cubeObservation = observation[CUBE_OBS]
 
 		# Sanity check, just in case
 		if len(cubeObservation) != self.numElements:
@@ -56,7 +70,8 @@ class VisionHandler(object):
 		temp = np.array(cubeObservation, dtype="|S25")
 		temp = np.reshape(temp, (self.realSize, self.realSize, self.realSize))
 		self.matrix = np.swapaxes(temp, 1, 2)
-		self.filterOccluded()
+		self.__filterOccluded()
+
 
 
 	def areValidRelCoords(self, relX, relY, relZ):
@@ -84,9 +99,12 @@ class VisionHandler(object):
 		else:
 			return ""
 
+
 	def isBlock(self, relX, relY, relZ, blockName):
 		""" Returns True/False if the given block is at the given relative position. """
 		return self.getBlockAtRelPos(relX, relY, relZ) == blockName
+
+
 
 	def findBlocks(self, blockName):
 		"""
@@ -129,7 +147,7 @@ class VisionHandler(object):
 		return walkableBlocks
 
 
-	def getUniquelyVisibleBlocks(self):
+	def getUniqueVisibleBlocks(self):
 		""" Returns a list of unique blocktypes visible. """
 
 		uniqueBlocks = []
@@ -144,8 +162,10 @@ class VisionHandler(object):
 		return uniqueBlocks
 
 
+
 	def __setupVisibilityMatrix(self):
 		self.visible = np.zeros((self.realSize, self.realSize, self.realSize), dtype=bool)
+
 
 	def __fixDefaultVisibility(self):
 		""" We can always "see" the 2 blocks where the player is standing """
@@ -153,13 +173,16 @@ class VisionHandler(object):
 		self.visible[self.center + 1, self.center, self.center] = True
 
 
+
 	def isVisible(self, relX, relY, relZ):
 		""" Returns True/False if the given relative x, y, z block is visible. """
 		return self.visible[self.center + relY, self.center + relX, self.center + relZ]
 
+
 	def __setVisible(self, relX, relY, relZ):
 		""" Sets the given relative x, y, z block to visible """
 		self.visible[self.center + relY, self.center + relX, self.center + relZ] = True
+
 
 	def __setInvisible(self, relX, relY, relZ):
 		""" Sets the block at relative x, y, z coordinates to empty string. """
@@ -185,8 +208,10 @@ class VisionHandler(object):
 
 		self.visibleBlocks = []
 
+
 	def __addVisibleBlock(self, block):
 		self.visibleBlocks.append(block)
+
 
 	def __updateVisibleBlockList(self):
 		""" Updates the list of visible blocks """
@@ -197,6 +222,7 @@ class VisionHandler(object):
 				for z in range(-self.size, self.size + 1):
 					if self.isVisible(x, y, z):
 						self.__addVisibleBlock(np.array([x, y, z]))
+
 
 
 	def __filterCoarse(self):
@@ -303,7 +329,8 @@ class VisionHandler(object):
 				break
 
 
-	def filterOccluded(self):
+
+	def __filterOccluded(self):
 		""" Filters out all occluded blocks that the agent cannot see. """
 
 		# Setup the visibility matrix, and do coarse filtering
@@ -311,4 +338,56 @@ class VisionHandler(object):
 		self.__setupVisibleBlockList()
 		self.__filterCoarse()
 		self.__applyVisibility()
+
+
+
+
+################################################################################
+# Secondary Vision handling class (entities)
+################################################################################
+
+class EntitiesHandler(object):
+	"""	Class for handling vision for entities. """
+	def __init__(self):
+		super(EntitiesHandler, self).__init__()
+		self.entities = None
+
+
+	def __repr__(self):
+		return "{}".format(self.entities)
+
+
+	def updateFromObservation(self, observation):
+		""" Updates the visible entities from the given observation """
+
+		self.entities = observation.get(ENTITIES_OBS)	# Defaults to None
+		self.playerPos = getPlayerPos(observation, False)
+
+
+	def getEntityPositions(self, entityToFind):
+		"""
+		Returns a numpy array of numpy arrays where the requested entity/entities
+		are, or else an empty numpy array if no entities can be found in the list.
+		The array will be sorted based on the distance to the entities (closest
+		first in the list).
+		"""
+		positionsFound = []
+		distances = []
+
+		if self.entities is None:
+			return np.array(positionsFound)
+
+		for entity in self.entities:
+			if entity[u"name"] == entityToFind:
+				x, y, z = entity[u"x"], entity[u"y"], entity[u"z"]
+				xyz = np.array([x, y, z])
+				positionsFound.append(xyz)
+				distances.append(distanceH(self.playerPos, xyz))
+
+		# Now we sort the list based on the distance to the entity
+		positionsFound = np.array(positionsFound)
+		distances = np.array(distances)
+		sortedIndices = distances.argsort()
+		return positionsFound[sortedIndices]
+
 

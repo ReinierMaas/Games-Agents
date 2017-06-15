@@ -151,30 +151,6 @@ def getLineOfSightBlock(lineOfSightDict, getIntVersion=True):
 
 
 
-def getEntityPositions(playerPos, entitiesList, entityToFind):
-	"""
-	Returns a numpy array of numpy arrays where the requested entity/entities
-	are, or else an empty numpy array if no entities can be found in the list.
-	The array will be sorted based on the distance to the entities (closest
-	first in the list).
-	"""
-	positionsFound = []
-	distances = []
-
-	for entity in entitiesList:
-		if entity[u"name"] == entityToFind:
-			x, y, z = entity[u"x"], entity[u"y"], entity[u"z"]
-			xyz = np.array([x, y, z])
-			positionsFound.append(xyz)
-			distances.append(distanceH(playerPos, xyz))
-
-	# Now we sort the list based on the distance to the entity
-	positionsFound = np.array(positionsFound)
-	distances = np.array(distances)
-	sortedIndices = distances.argsort()
-	return positionsFound[sortedIndices]
-
-
 def eprint(*args, **kwargs):
 	print(*args, file=sys.stderr, **kwargs)
 

@@ -11,15 +11,13 @@ import numpy as np
 from util import *
 from agentController import *
 
-ENTITIES_KEY = "entities"
 
-
-def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 7):
+def getRandomTreeDetails(spawnRange = 20, fixedY = 7, maxLogs = 6):
 	"""
 	Returns random x, y, z, numLogs (fixed y) to use as a random tree spawn. The
 	spawnRange is used as an upper and lower limit to x, z, as seen from the
 	origin. Notethat this function does not use x = 0 and z = 0 for a tree spawn.
-	Currently, 8 logs should be set as max since that is just within attackable
+	Currently, 6 logs should be set as max since that is just within attackable
 	range of a player, and then we don't have to bother with having to reach
 	the unreachable blocks...
 	"""
@@ -36,7 +34,7 @@ def getRandomTreeDetails(spawnRange = CUBE_SIZE, fixedY = 7, maxLogs = 7):
 	if not zSign:
 		z = -z
 
-	numLogs = np.random.randint(3, maxLogs)		# Within attackable range...
+	numLogs = np.random.randint(3, maxLogs + 1)		# Within attackable range...
 	return x, fixedY, z, numLogs
 
 
@@ -63,7 +61,7 @@ def getMissionXML(numTrees = 2):
 		x, y, z, numLogs = getRandomTreeDetails()
 		treePositions.append(np.array([x, y, z]))
 		treeList.append(getTreeString(x, y, z, numLogs))
-		totalLogs += numLogs
+		totalLogs += numLogs + 1
 
 	print "Number of logs that will be spawned = {}".format(totalLogs)
 	treeString = "".join(treeList)
@@ -88,7 +86,7 @@ def getMissionXML(numTrees = 2):
 					<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />
 					{treeString}
 					<ServerQuitWhenAnyAgentFinishes />
-					<ServerQuitFromTimeUp timeLimitMs="60000" description="Ran out of time." />
+					<ServerQuitFromTimeUp timeLimitMs="120000" description="Ran out of time." />
 				</ServerHandlers>
 			</ServerSection>
 
@@ -118,7 +116,7 @@ def getMissionXML(numTrees = 2):
 					</ObservationFromGrid>
 				</AgentHandlers>
 			</AgentSection>
-		</Mission>""".format(treeString=treeString, entitiesName=ENTITIES_KEY,
+		</Mission>""".format(treeString=treeString, entitiesName=ENTITIES_OBS,
 			gridName=CUBE_OBS, gridSize=CUBE_SIZE), treePositions
 
 
@@ -200,15 +198,17 @@ if __name__ == "__main__":
 			time.sleep(0.1)
 			worldState = agentHost.getWorldState()
 
-		print "\nMission running - Spawned random tree for agent to chop down"
+		print "\nMission running - Spawned random trees for agent to chop down"
 		time.sleep(1.0)		# To allow observations and rendering to become ready
 
 
-		# Setup agent handler and chopped trees stuff
+		# Setup agent handler and first target tree
 		agent = AgentController(agentHost)
-		treePos = treePositions[0]
-		print "Using treePos = {}".format(treePos)
+		treeNr = 0
+		treePos = treePositions[treeNr]
 		woodLeft = True
+		dropsLeft = True
+		print "Using first treePos = {}".format(treePos)
 
 		# Mission loop:
 		while worldState.is_mission_running:
@@ -216,10 +216,6 @@ if __name__ == "__main__":
 				# Get observation info
 				msg = worldState.observations[-1].text
 				observation = json.loads(msg)
-				# print "observation = {}".format(observation)
-
-				# if ENTITIES_KEY in observation:
-				# 	print "entities = {}".format(observation[ENTITIES_KEY])
 
 				if u"XPos" not in observation:
 					print "Fuck you Malmo, gimme mah playahPos"
@@ -230,33 +226,36 @@ if __name__ == "__main__":
 				agent.updateObservation(observation)
 
 				if u"LineOfSight" in observation:
-					# print "LOS = {}".format(observation[u"LineOfSight"])
-					# TODO: Finish function below and scrap everything below it...
 					if woodLeft:
 						woodLeft = agent.destroyBlock(observation[u"LineOfSight"],
 							BLOCK_WOOD, treePos)
 					else:
-						# Check if we can collect some wood spoils, and pick them up...
-						if ENTITIES_KEY in observation:
-							woodDropPositions = getEntityPositions(agent.playerPos,
-								observation[ENTITIES_KEY], BLOCK_WOOD)
-
-							if woodDropPositions != []:
-								agent.controller.lookAt(woodDropPositions[0])
-								agent.controller.moveForward()
-							else:
+						# Check if we have destroyed all the trees...
+						if treeNr >= len(treePositions) - 1:
+							# Check if we can collect some wood spoils, and pick them up...
+							if not dropsLeft:
 								print "Chopped tree down and collected all wood!"
 								agent.controller.setPitch(0)
 								agent.controller.stopMoving()
 								time.sleep(1.5)
 								agentHost.sendCommand("quit")
+							else:
+								dropsLeft = agent.collectDrops(BLOCK_WOOD)
+						else:
+							# Its likely that theres wood left, so try again
+							woodLeft = True
+							treeNr += 1
+							treePos = treePositions[treeNr]
+							print "Trying next tree nr {} at {}".format(
+								treeNr + 1, treePos)
 				else:
-					print "Y U NO GIVE LINEOFSIGHT?"
+					print "Looking down because we dont have LOS info..."
 					agent.controller.setPitch(45)	# Or something smarter perhaps
 
 			for error in worldState.errors:
 				print "Error:", error.text
 
+			# Update world state and observation
 			worldState = agentHost.getWorldState()
 
 		print "\nMission ended!"
