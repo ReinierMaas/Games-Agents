@@ -11,7 +11,7 @@ from util import *
 # Configuration for observation cube and vision handling
 ################################################################################
 CUBE_OBS = "cube10"				# Name that will be used in XML/JSON
-CUBE_SIZE = 3 					# Size in 1 direction
+CUBE_SIZE = 6 					# Size in 1 direction
 
 
 
@@ -97,7 +97,7 @@ class VisionHandler(object):
 		"""
 		coordinates = []
 		distances = []
-		playerPos = np.array([0, 0, 0])
+		playerPos = np.array([0.0, 0.0, 0.0])
 
 		# Find the block we're looking for
 		for block in self.visibleBlocks:
@@ -127,6 +127,21 @@ class VisionHandler(object):
 				walkableBlocks.append(np.array([x, y, z]))
 
 		return walkableBlocks
+
+
+	def getUniquelyVisibleBlocks(self):
+		""" Returns a list of unique blocktypes visible. """
+
+		uniqueBlocks = []
+
+		for block in self.visibleBlocks:
+			x, y, z = block
+			blockType = self.getBlockAtRelPos(x, y, z)
+
+			if blockType != "" and blockType not in uniqueBlocks:
+				uniqueBlocks.append(blockType)
+
+		return uniqueBlocks
 
 
 	def __setupVisibilityMatrix(self):

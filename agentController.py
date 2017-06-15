@@ -39,19 +39,22 @@ class AgentController(object):
 
 	def destroyBlock(self, losDict, blockType, targetPosition = None):
 		"""
-		Destroys at most maxBlocks block(s) of the given blockType, at the
-		given targetPosition. If targetPosition is not given, then the agent
-		will first look around for blocks of that type, and destroy those.
-		Otherwise, it will consult the waypoint graph. If the waypoint graph
-		does not have the type, then False, False will be returned.
+		Destroys block(s) of the given blockType, at the given targetPosition.
+		If targetPosition is not given, then the agent will first look around
+		for blocks of that type, and destroy those. Otherwise, it will consult
+		the waypoint graph. If the waypoint graph does not have the type, then
+		False will be returned.
 
-		TODO: Merge the waypoint graph consulting
+		TODO: Merge the waypoint graph consulting stuff
 
 		This function will return 2 things every time it is called. It will
-		return True, True if it succeeded in destroying a block, or True, False
-		if it is currently in the process of doing so. It will return False, False
-		if there are no more blocks to destroy of this type. This function
+		return True if it succeeded in destroying a block or if it is currently
+		in the process of doing so (there is no distinction...). It will return
+		False if there are no more blocks to destroy of this type. This function
 		should be called in the main loop.
+
+		TODO: Figure out a way how to determine if a block is destroyed?
+
 		"""
 
 		# Find all the blocks in our visual vicinity, and use that as a basis
@@ -59,14 +62,12 @@ class AgentController(object):
 		blockPositions = self.visionHandler.findBlocks(blockType)
 
 		if targetPosition is None:
-			print "GIMME TARGET POSITION"
-
 			if blockPositions != []:
 				targetPosition = blockPositions[0] + self.intPlayerPos
 			else:
 				# TODO: Look for this block in the navigation/waypoint stuff...
 				print "Not implemented yet! TODO: Add waypoint shit"
-				return False, False
+				return False
 
 		# Figure out if target is in view distance, and thus figure out if we're
 		# able to see and destroy the blocks
@@ -80,13 +81,15 @@ class AgentController(object):
 			print "Target is outside view distance, moving towards it! TODO: Use proper navigation..."
 			self.controller.lookAt(targetPosition)
 			self.controller.moveForward()
-			return True, False
+			return True
 
 		if len(blockPositions) == 0:
-			# Shit, no block visible/in range... keep moving then
-			print "Target block {} at targetPosition {} not in range!".format(
+			# Shit, no block visible/in range... either we got them all, or
+			# there was nothing to begin with
+			print "Target block {} at targetPosition {} not in visual range!".format(
 				blockType, targetPosition)
-			return False, False
+			self.controller.setAttackMode(False)
+			return False
 
 		# Look at the first block
 		usableBlockPos = self.intPlayerPos + blockPositions[0]
@@ -112,7 +115,7 @@ class AgentController(object):
 			self.controller.stopMoving()
 			self.controller.lookAt(realBlockPos)
 			self.controller.setAttackMode(True)
-			return True, destroyedBlock
+			return True
 		else:
 			# If the distance between the block and our position is too far
 			# away, we need to move towards it
@@ -129,8 +132,7 @@ class AgentController(object):
 				self.controller.lookAt(realBlockPos)
 				self.controller.moveForward(movementSpeed)
 
-			# This also means that we have just destroyed a block
-			return True, True
+			return True
 
 		# We've gotten all of the visible blocks at the targetPosition!
 		print "Got all blocks {} at target position {}!".format(blockType, targetPosition)
