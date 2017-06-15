@@ -22,6 +22,9 @@ TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 
 BLOCK_WOOD = "log"
 
+# This lists all blocks that the agent can stand not (safely) on
+UNWALKABLE_BLOCKS = ["lava", "water"]
+UNWALKABLE_BLOCKS.extend(TRANSPARANT_BLOCKS)
 
 ################################################################################
 # Main Vision handling class
@@ -116,18 +119,18 @@ class VisionHandler(object):
         """ See findBlocks function, returns coordinates of wood/log. """
         return self.findBlocks(BLOCK_WOOD)
 
-    def getWalkableBlocks(self):
-        """ Returns a list of all [x, y, z] blocks that the player can stand on. """
+	def getWalkableBlocks(self):
+		""" Returns a list of all [x, y, z] blocks that the player can stand on. """
 
-        walkableBlocks = []
+		walkableBlocks = []
 
-        for block in self.visibleBlocks:
-            x, y, z = block.getXYZ()
+		for block in self.visibleBlocks:
+			x, y, z = block.getXYZ()
 
-            if self.isBlock(x, y, z, "air") and self.isBlock(x, y + 1, z, "air"):
-                walkableBlocks.append(np.array([x, y, z]))
+			if (self.getBlockAtRelPos(x,y,z) not in UNWALKABLE_BLOCKS and self.isBlock(x, y +1, z, "air") and self.isBlock(x, y +2, z, "air")):
+				walkableBlocks.append(np.array([x, y, z]))
 
-        return walkableBlocks
+		return walkableBlocks
 
     def __setupVisibilityMatrix(self):
         self.visible = np.zeros((self.realSize, self.realSize, self.realSize), dtype=bool)
