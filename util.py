@@ -6,16 +6,19 @@ import sys
 import numpy as np
 
 
-
 # Some constants that can be useful
 PLAYER_EYES = 1.625  			# Player's eyes are at y = 1.625 blocks high
 PLAYER_EYES_CROUCHING = 1.5		# Player's eyes are at y = 1.5 when crouching
 
 
-# Offset in different coordinates between Malmo and Minecraft as can be
-# observed from the debug screen in Minecraft itself (F3)
-MALMO_OFFSET = np.array([-1, 1, 0])
+# This is a list of all transparant blocks that the agent can see through.
+TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
+	"torch", "ladder", "fence", "iron_bars", "glass_pane", "vines", "lily_pad",
+	"sign", "item_frame", "flower_pot", "skull", "armor_stand", "banner", "tall_grass",
+	"lever", "pressure_plate", "redstone_torch", "button", "trapdoor", "tripwire",
+	"tripwire_hook", "redstone", "rail", "beacon", "cauldron", "brewing_stand"]
 
+BLOCK_WOOD = "log"
 
 
 def getVectorLength(vector):
@@ -137,20 +140,23 @@ def getLookAt(observation, playerIsCrouching):
 
 
 
-def getLineOfSightBlock(lineOfSightDict):
+def getLineOfSightBlock(lineOfSightDict, getIntVersion=True):
 	""" Returns real position of the line of sight block as an int np array. """
 
 	# We offset x by -1.0 because minecraft has a shitty coordinate system etc
-	return np.array([lineOfSightDict[u"x"] - 1.0, lineOfSightDict[u"y"],
-		lineOfSightDict[u"z"]]).astype(int)
+	losBlock = np.array([lineOfSightDict[u"x"] - 0.1, lineOfSightDict[u"y"],
+		lineOfSightDict[u"z"]]) - 0.1
+	# print("util: losBlock = {}".format(losBlock))
+	return np.round(losBlock).astype(int) if getIntVersion else losBlock
 
 
 
 def getEntityPositions(playerPos, entitiesList, entityToFind):
 	"""
-	Returns a list of numpy arrays where the requested entity/entities are, or
-	else an empty list of no entities can be found in the list. The list will
-	be sorted based on the distance to the entities (closest first in the list).
+	Returns a numpy array of numpy arrays where the requested entity/entities
+	are, or else an empty numpy array if no entities can be found in the list.
+	The array will be sorted based on the distance to the entities (closest
+	first in the list).
 	"""
 	positionsFound = []
 	distances = []
@@ -163,9 +169,10 @@ def getEntityPositions(playerPos, entitiesList, entityToFind):
 			distances.append(distanceH(playerPos, xyz))
 
 	# Now we sort the list based on the distance to the entity
-	# TODO: Sort...
-
-	return positionsFound
+	positionsFound = np.array(positionsFound)
+	distances = np.array(distances)
+	sortedIndices = distances.argsort()
+	return positionsFound[sortedIndices]
 
 
 def eprint(*args, **kwargs):
