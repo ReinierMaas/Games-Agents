@@ -22,7 +22,7 @@ class Controller(object):
 		self.pitch = 0.0
 		self.location = np.array([0, 0, 0], dtype=float)
 		self.crouching = 0
-		self.speed = 0
+		self.movementSpeed = 0
 
 
 	def getLocation(self):
@@ -86,15 +86,6 @@ class Controller(object):
 		eyes = np.array([0, PLAYER_EYES_CROUCHING if self.crouching else PLAYER_EYES, 0])
 		dx, dy, dz = position - (self.location + eyes)
 		dh = sqrt(dx**2 + dz**2)
-
-		# For some reason, looking up requires a bit more effort, so we scale dy
-		# by 2.0, to compensate for our inability to properly look up
-		# (otherwise upper bound would be limited to pitch = -32.7). This magic
-		# number was found through some testing with appropriate scalings...
-		# Now it works reasonably ok...
-		# if dy > 0.0:
-		# 	dy *= 2.0
-
 		pitch = -degrees(atan2(dy, dh))
 		self.setPitch(pitch)
 
@@ -137,8 +128,4 @@ class Controller(object):
 
 	def isMoving(self):
 		return self.movementSpeed != 0.0
-		return self.crouch
 
-	def move(self, speed):
-		self.agent.sendCommand("move {}".format(speed))
-		self.speed = speed

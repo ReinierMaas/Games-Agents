@@ -147,8 +147,7 @@ if __name__ == "__main__":
 			# Update vision and filter occluded blocks
 			controller.update(observation)
 
-			visionHandler.updateFromObservation(observation[CUBE_OBS])
-			visionHandler.filterOccluded(lookAt, playerIsCrouching)
+			visionHandler.updateFromObservation(observation)
 			playerPos = controller.location
 
 			walkable = visionHandler.getWalkableBlocks()

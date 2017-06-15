@@ -1,5 +1,7 @@
 import random
 
+from vision import CUBE_OBS, CUBE_SIZE
+
 def getTreeDecorator():
 	return \
 	"""<DrawingDecorator>
@@ -105,7 +107,7 @@ def bulkFlagLoc(graph, locations, flag):
 def getFlatWorldGenerator():
 	return """<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />"""
 
-def getMissionXML(generator, drawingDecorator, cubeObs = "cube10", cubeSize = 2, startLocationAndAngles = (1.5, 7.0, 13.5,90,10), \
+def getMissionXML(generator, drawingDecorator, cubeObs = CUBE_OBS, cubeSize = CUBE_SIZE, startLocationAndAngles = (1.5, 7.0, 13.5,90,10), \
 	gameMode = "Survival", startTime = 10000, weather = "clear", timeLimit = 60000):
 	""" Generates mission XML with flat world and 1 crappy tree. """
 	x,y,z,yaw,pitch = startLocationAndAngles
