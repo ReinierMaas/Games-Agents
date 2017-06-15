@@ -137,8 +137,8 @@ class Controller(object):
 
 	def isMoving(self):
 		return self.movementSpeed != 0.0
-		return self.crouch
+
 
 	def move(self, speed):
 		self.agent.sendCommand("move {}".format(speed))
-		self.speed = speed
+		self.movementSpeed = speed

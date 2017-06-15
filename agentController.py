@@ -13,6 +13,7 @@ from util import *
 from math import *
 from controller import *
 from vision import *
+import navigation as nav
 
 
 class AgentController(object):
@@ -22,6 +23,7 @@ class AgentController(object):
 		self.agent = agentHost
 		self.visionHandler = VisionHandler(CUBE_SIZE)
 		self.controller = Controller(agentHost)
+		self.navigator = nav.Navigator(self.controller)
 
 
 	def updateObservation(self, observation):
