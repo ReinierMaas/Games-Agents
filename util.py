@@ -21,6 +21,16 @@ TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 BLOCK_WOOD = "log"
 
 
+# This lists the blocks that the agent can't stand (safely) on
+UNWALKABLE_BLOCKS = ["lava", "water", "air", "sapling", "cobweb", "flower",
+	"mushroom", "torch", "vines", "sign", "item_frame",  "armor_stand",
+	"banner", "tall_grass",	"lever", "redstone_torch", "button", "tripwire",
+	"tripwire_hook", "redstone", "rail", "cactus"]
+
+
+################################################################################
+# Utility functions for vectors
+################################################################################
 def getVectorLength(vector):
 	""" Returns the length of the vector. """
 
@@ -96,6 +106,10 @@ def distanceV(vector1, vector2):
 
 
 
+################################################################################
+# Utility functions for player handling, such as extracting player position etc
+# from observation JSON
+################################################################################
 def getPlayerPos(observation, getIntVersion=False):
 	""" Returns the position of the player from the observation as a np array. """
 	x, y, z = observation[u"XPos"], observation[u"YPos"], observation[u"ZPos"]
@@ -144,35 +158,11 @@ def getLineOfSightBlock(lineOfSightDict, getIntVersion=True):
 	""" Returns real position of the line of sight block as an int np array. """
 
 	# We offset x by -1.0 because minecraft has a shitty coordinate system etc
-	losBlock = np.array([lineOfSightDict[u"x"] - 0.1, lineOfSightDict[u"y"],
-		lineOfSightDict[u"z"]]) - 0.1
+	losBlock = np.array([lineOfSightDict[u"x"], lineOfSightDict[u"y"],
+		lineOfSightDict[u"z"]])
 	# print("util: losBlock = {}".format(losBlock))
 	return np.round(losBlock).astype(int) if getIntVersion else losBlock
 
-
-
-def getEntityPositions(playerPos, entitiesList, entityToFind):
-	"""
-	Returns a numpy array of numpy arrays where the requested entity/entities
-	are, or else an empty numpy array if no entities can be found in the list.
-	The array will be sorted based on the distance to the entities (closest
-	first in the list).
-	"""
-	positionsFound = []
-	distances = []
-
-	for entity in entitiesList:
-		if entity[u"name"] == entityToFind:
-			x, y, z = entity[u"x"], entity[u"y"], entity[u"z"]
-			xyz = np.array([x, y, z])
-			positionsFound.append(xyz)
-			distances.append(distanceH(playerPos, xyz))
-
-	# Now we sort the list based on the distance to the entity
-	positionsFound = np.array(positionsFound)
-	distances = np.array(distances)
-	sortedIndices = distances.argsort()
-	return positionsFound[sortedIndices]
 
 
 def eprint(*args, **kwargs):

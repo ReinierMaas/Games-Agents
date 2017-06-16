@@ -22,6 +22,7 @@ class AgentController(object):
 	def __init__(self, agentHost):
 		self.agent = agentHost
 		self.visionHandler = VisionHandler(CUBE_SIZE)
+		self.entitiesHandler = EntitiesHandler()
 		self.controller = Controller(agentHost)
 		self.navigator = nav.Navigator(self.controller)
 
@@ -29,121 +30,133 @@ class AgentController(object):
 	def updateObservation(self, observation):
 		""" Updates handlers with observations. """
 		self.controller.update(observation)
-		self.visionHandler.updateFromObservation(observation[CUBE_OBS])
+		self.visionHandler.updateFromObservation(observation)
+		self.entitiesHandler.updateFromObservation(observation)
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
-		print "self.playerPos = {}, self.intPlayerPos = {}".format(
-			self.playerPos, self.intPlayerPos)
 
 
-	def findWood(self):
-		""" See visionHandler.findBlocks function, returns coordinates of logs. """
-		return self.visionHandler.findBlocks(BLOCK_WOOD)
-
-
-	def chopTree(self, lineOfSightDict, treePosition = None):
+	def destroyBlock(self, losDict, blockType, targetPosition = None):
 		"""
-		Chops down 1 tree and collects all the logs from that tree. If no tree
-		position is given (np array with x, y, z position), then the agent
-		looks in his direct surroundings for a tree, and will chop that one
-		down. If no trees are in his direct surroundings, he will explore the
-		navigation/waypoint graph for a tree, go there, and chop that one down.
-		Finally, it will return True if it succeeded in chopping down a part of
-		the tree, and False if it failed to chop it down or if it is already
-		fully chopped down. This function should be called in a loop.
+		Destroys block(s) of the given blockType, at the given targetPosition.
+		If targetPosition is not given, then the agent will look around	for
+		blocks of that type, and destroy those. Otherwise, it will consult the
+		waypoint graph. If the waypoint graph does not have the type, then
+		False will be returned.
+
+		TODO: Merge the waypoint graph consulting stuff
+
+		This function will return True/False every time it is called. It will
+		return True if it succeeded in destroying a block or if it is currently
+		in the process of doing so (there is no distinction...). It will return
+		False if there are no more blocks to destroy of this type. This function
+		should be called in the main loop.
+
+		TODO: Figure out a way how to determine if a block is destroyed?
+
 		"""
 
-		# Find all the wood in our vicinity
-		woodPositions = self.findWood()
+		# Find all the blocks in our visual vicinity, and use that as a basis
+		# for the target position if it is not given, or use waypoint graph
+		blockPositions = self.visionHandler.findBlocks(blockType)
 
-		if treePosition is None:
-			print "GIMME TREE"
-
-			if woodPositions != []:
-				treePosition = woodPositions[0] + self.intPlayerPos
+		if targetPosition is None:
+			if blockPositions != []:
+				targetPosition = blockPositions[0] + self.intPlayerPos
 			else:
-				# TODO: Look for a tree in the navigation/waypoint stuff...
-				print "Not implemented yet!"
+				# TODO: Look for this block in the navigation/waypoint stuff...
+				print "Not implemented yet! TODO: Add waypoint shit"
 				return False
 
-		print "woodPositions = {}".format(woodPositions)
-
-		# Figure out if tree is in view distance, and thus figure out if we're
-		# able to get the rest of the logs of the tree.
-		distanceToTree = distanceH(self.playerPos, treePosition)
-		movementSpeed = distanceToTree / 3.0
-		treeLogPositions = [treePosition]
+		# Figure out if target is in view distance, and thus figure out if we're
+		# able to see and destroy the blocks
+		distanceToTarget = distanceH(self.playerPos, targetPosition)
+		movementSpeed = distanceToTarget / 3.5
 		viewDistance = sqrt(3 * (CUBE_SIZE + 1)**2)
 
-		if getVectorDistance(self.intPlayerPos, treePosition) <= viewDistance:
-			treeX, treeY, treeZ = treePosition
-
-			# Tree is visible, get rest of the log blocks of it
-			for logBlock in woodPositions:
-				blockX, blockY, blockZ = self.intPlayerPos + logBlock
-
-				if treeX == blockX and treeZ == blockZ:
-					treeLogPositions.append(logBlock)
-		else:
-			# Tree is outside our view distance, move towards it!
+		if getVectorDistance(self.intPlayerPos, targetPosition) > viewDistance:
+			# Target is outside our view distance, move towards it!
 			# TODO: Use proper navigation
-			print "Tree is outside view distance, moving towards it!"
-			self.controller.lookAt(treePosition)
+			# print "Target is outside view distance, moving towards it!"
+			self.controller.lookAt(targetPosition)
 			self.controller.moveForward()
 			return True
 
-		print "Logs of tree = {}".format(treeLogPositions)
-
-		losBlock = getLineOfSightBlock(lineOfSightDict)
-		inRange = lineOfSightDict[u"inRange"]
-		losBlockIsWood = lineOfSightDict[u"type"] == BLOCK_WOOD
-		print "LOS Dict = {}".format(lineOfSightDict)
-		print "losBlock = {}, inRange = {}, isWood = {}".format(losBlock,
-			inRange, losBlockIsWood)
-
-		# Check if we have targeted one of the logs of the tree
-		targetedOneBlock = False
-
-		for logBlock in treeLogPositions:
-			if (losBlock == logBlock).all():
-				# Yes, we have it targeted, check if its in range and if its wood
-				print "Yes, we have block {} targeted!".format(losBlock)
-				targetedOneBlock = True
-
-				if inRange:
-					if losBlockIsWood:
-						# Stop moving and chop it down
-						print "Looking at target tree, chopping it down!"
-						self.controller.stopMoving()
-						# self.controller.lookAt(treePosition)
-						self.controller.setAttackMode(True)
-						return True
-					else:
-						# In range but not wood, so that means it has been
-						# replaced by something else, since our vision says
-						# that it should be a log block
-						print "Expected log at {} but got {}".format(
-							logBlock, lineOfSightDict[u"type"])
-						continue
-				else:
-					# Not in range, move towards it
-					# TODO: Use real navigation...
-					print "Tree not in range, moving towards it..."
-					self.controller.setAttackMode(False)
-					self.controller.lookAt(logBlock)
-					self.controller.moveForward(movementSpeed)
-					return True
-
-		if not targetedOneBlock:
-			print "We failed to target the tree, aiming for it now..."
+		if len(blockPositions) == 0:
+			# Check if we are "close" enough to the target position, and
+			# if so, then that means that there are now no blocks visible/in
+			# range, so either we got them all, or there was nothing at all.
+			# If we are not close enough, then we should move closer to the
+			# target position and try again
 			self.controller.setAttackMode(False)
-			difference = treePosition - losBlock
-			self.controller.lookAt(treePosition + difference * 0.5)
-			# self.controller.lookAt(treePosition)
+
+			if distanceToTarget > sqrt(2.0):
+				# print "Returning back to target position {}".format(targetPosition)
+				self.controller.lookAt(targetPosition)
+				self.controller.moveForward(movementSpeed)
+				return True
+			else:
+				# print "Target block {} at targetPosition {} not in visual range!".format(
+					# blockType, targetPosition)
+				# print "Either we got them all, or there was nothing to begin with..."
+				return False
+
+		# Look at the first block (they are sorted based on distance to player)
+		usableBlockPos = self.intPlayerPos + blockPositions[0]
+		realBlockPos = self.playerPos + blockPositions[0]
+		self.controller.lookAt(realBlockPos)
+
+		# Check line of sight to see if we have targeted the right block
+		losBlock = getLineOfSightBlock(losDict)
+		losBlockType = losDict[u"type"]
+		relBlockPos = losBlock - self.intPlayerPos
+		x, y, z = relBlockPos
+		visionBlockIsCorrectType = self.visionHandler.isBlock(x, y, z, blockType)
+
+		# If we are close enough to the target block, start punching it
+		inRange = losDict[u"inRange"]
+
+		if inRange and ((losBlock == usableBlockPos).all() or \
+		visionBlockIsCorrectType or losBlockType == blockType):
+
+			# print "Destroying block!!!"
+			self.controller.stopMoving()
+			self.controller.lookAt(realBlockPos)
+			self.controller.setAttackMode(True)
+			return True
+		else:
+			# If the distance between the block and our position is too far
+			# away, we need to move towards it
+			self.controller.setAttackMode(False)
+			distanceEpsilon = 0.9
+			distanceToBlock = distanceH(self.playerPos, realBlockPos)
+
+			# Malmo already clips speeds > 1.0 to 1.0 maximum
+			movementSpeed = distanceToBlock / 3.0
+
+			if distanceToBlock > distanceEpsilon:
+				# Keep moving forward until we reach it
+				# print "Moving towards new block, possibly like a fucking moron!"
+				self.controller.lookAt(realBlockPos)
+				self.controller.moveForward(movementSpeed)
+
 			return True
 
-		# We've gotten all of the blocks of the tree, tree is down!
-		print "Got all logs of this tree!"
 
-		# TODO: Check log drops and pick them up
 
+	def collectDrops(self, dropType):
+		"""
+		Collects dropped items by walking over to them. This function should be
+		called in a loop, just like destroyBlock(). It returns True for as long
+		as there are drops to collect, and False when there are no more drops.
+		"""
+
+		# Check if we can collect some drops, and pick them up...
+		dropPositions = self.entitiesHandler.getEntityPositions(dropType)
+
+		if len(dropPositions) != 0:
+			self.controller.lookAt(dropPositions[0])
+			self.controller.moveForward()
+			return True
+		else:
+			return False
