@@ -320,6 +320,12 @@ class Navigator(object):
 		else:
 			return None
 
+	def findAndSet(self, key):
+		""" Find the route to the closest waypoint with given key, and set it as the current route"""
+		route = self.findRouteByKey(self.lastWaypoint, key)
+		if route is not None:
+			self.setRoute(route)
+
 	def findRouteByKey(self, startWp, key):
 		"""Find the shortest overall route from the start waypoint to a waypoint that contains given key"""
 		graph = startWp.graph
