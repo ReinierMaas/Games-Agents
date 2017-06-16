@@ -206,9 +206,7 @@ def Astar(wpStart, wpEnd, heuristic):
 	#we didn't find a route to wpEnd
 	return None
 
-def findRoute(startWp, endWp):
-	"""Find the route from the start waypoint to the end waypoint"""
-	return Astar(startWp, endWp, euclidianDistance)
+
 
 def isConnected(node):
 	"""Check if the node is connected to an enabled node"""
@@ -220,24 +218,7 @@ def isConnected(node):
 
 	return False
 
-def findRoutesByKey(startWp, key):
-	"""Find the shortest routes from the start waypoint to all waypoints that contain a given key"""
-	graph = startWp.graph
-	nodes = list(graph.findNodes(key))
-	nodes = filter(lambda node: isConnected(node), nodes)
-	if nodes:
-		return map(lambda node: Astar(startWp, node, euclidianDistance), nodes)
-	else:
-		return None
 
-def findRouteByKey(startWp, key):
-	"""Find the shortest overall route from the start waypoint to a waypoint that contains given key"""
-	routes = findRoutesByKey(startWp, key)
-	if routes:
-		route = min(routes, key= lambda route:  len(route))
-		return route
-	else:
-		return None
 
 
 class Navigator(object):
@@ -262,25 +243,6 @@ class Navigator(object):
 		else:
 			self.target = self.route.pop(0)
 			self.targetReached = False
-
-	def placeWaypoint(self, radius = 4):
-		wp = WaypointNode(self.controller.getLocation(), radius)
-		wp.assignNeighbor(self.lastWaypoint)
-		self.lastWaypoint = wp
-		print "Placed new waypoint at ", wp.location, " with radius ", wp.radius
-
-	def setBestNode(self,  allNodes):
-		bestNode = None
-		distance = float("inf")
-		wpHere = WaypointNode(self.Location, 0)
-		for node in allNodes:
-			dist = euclidianDistance(wpHere, node)
-			if dist > node.radius:
-				continue
-			elif dist < distance:
-				bestNode = node
-				distance = dist
-		self.lastWaypoint = bestNode
 
 	def updateFromVision(self, walkable, interesting, visionRange):
 		if not self.enabled:
@@ -337,13 +299,50 @@ class Navigator(object):
 				else:
 					self.targetReached = True
 					if autoMove:
-						self.controller.move(0)
+						self.controller.stopMoving()
 					print "Target Reached!"
 					self.target = None
 
 		if self.target is not None:
 			self.controller.lookAtHorizontally(self.target.location)
 			if autoMove:
-				self.controller.move(0.7)
+				self.controller.moveForward(0.7)
 
 		return True
+
+	def findRoutesByKey(self, startWp, key):
+		"""Find the shortest routes from the start waypoint to all waypoints that contain a given key"""
+		graph = startWp.graph
+		nodes = list(graph.findNodes(key))
+		nodes = filter(lambda node: isConnected(node), nodes)
+		if nodes:
+			return map(lambda node: Astar(startWp, node, euclidianDistance), nodes)
+		else:
+			return None
+
+	def findRouteByKey(self, startWp, key):
+		"""Find the shortest overall route from the start waypoint to a waypoint that contains given key"""
+		graph = startWp.graph
+		nodes = list(graph.findNodes(key))
+		target = None
+		minDist = float('inf')
+		for node in nodes:
+			dist = euclidianDistance(node, startWp)
+			if dist < minDist:
+				target = node
+				minDist = dist
+
+		if target is None:
+			return None
+		else:
+			return Astar(startWp, target, euclidianDistance)
+		# routes = self.findRoutesByKey(startWp, key)
+		# if routes:
+		# 	route = min(routes, key= lambda route:  len(route))
+		# 	return route
+		# else:
+		# 	return None
+
+	def findRoute(startWp, endWp):
+		"""Find the route from the start waypoint to the end waypoint"""
+		return Astar(startWp, endWp, euclidianDistance)

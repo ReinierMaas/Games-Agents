@@ -90,19 +90,23 @@ def genTrees():
 				locs.append((x,z))
 	return trees, locs
 
-def bulkFlagRegion(graph, regions, flag):
+def bulkFlagRegion(graph, regions, flag, disable):
 	for x,z,w,d in regions:
 		for ix in range(x, x+w+1):
 			for iz in range(z, z+d+1):
 				idX, idZ = graph.nodeIdAt(ix, iz)
 				node = graph.getNode(idX, idZ)
 				node.setFlag(flag)
+				if disable:
+					node.disable()
 
-def bulkFlagLoc(graph, locations, flag):
+def bulkFlagLoc(graph, locations, flag, disable):
 	for x,z in locations:
 		idX, idZ = graph.nodeIdAt(x, z)
 		node = graph.getNode(idX, idZ)
 		node.setFlag(flag)
+		if disable:
+			node.disable()
 
 def getFlatWorldGenerator():
 	return """<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />"""

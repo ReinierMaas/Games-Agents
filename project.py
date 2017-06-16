@@ -126,9 +126,9 @@ if __name__ == "__main__":
 	navigator.setNavGraph(navGraph)
 
 	if PRE_EXPLORE:
-		worldGen.bulkFlagRegion(navGraph, lakeLocs, "water")
-		worldGen.bulkFlagRegion(navGraph, lavaLocs, "lava")
-		worldGen.bulkFlagLoc(navGraph, treelocs, "log")
+		worldGen.bulkFlagRegion(navGraph, lakeLocs, "water", True)
+		worldGen.bulkFlagRegion(navGraph, lavaLocs, "lava", True)
+		worldGen.bulkFlagLoc(navGraph, treelocs, "log", True)
 
 	startTime = time.time()
 	routeSet = False
@@ -159,10 +159,10 @@ if __name__ == "__main__":
 				routeSet = False
 
 
-			if time.time() - startTime > 20 and not routeSet:
+			if time.time() - startTime > 5 and not routeSet:
 				startWp = navigator.lastWaypoint
 				routeSet = True
-				route = findRouteByKey(startWp, "log")
+				route = navigator.findRouteByKey(startWp, "log")
 				if route is not None:
 					print route
 					navigator.setRoute(route)
