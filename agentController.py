@@ -142,7 +142,8 @@ class AgentController(object):
 
 			return True
 
-
+	def craft(self, item):
+		self.controller.agent.sendCommand("craft {}".format(item))
 
 	def collectDrops(self, dropType):
 		"""

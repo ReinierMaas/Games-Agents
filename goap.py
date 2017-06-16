@@ -86,32 +86,61 @@ class ActionReturn:
 
 
 def findTrees(w):
+    ac = w["agentController"]
+    nav = ac.navigator
+    nav.findAndSet('log')
     print 'finding trees! find find...'
     return ActionReturn.success
 
 
 def chopWood(w):
+    ac = w["agentController"]
+    nav = ac.navigator
+
+    if "chopWood" not in w:
+        w["chopWood"] = False
+
+    if not w["chopWood"]:
+        w["chopWood"] = True
+        w["foundTree"] = False
+        nav.findAndSet('log')
+        ActionReturn.retry
+    else if not w["foundTree"]:
+        if nav.targetReached:
+            w["foundTree"] = True
+    else:
+        if ac.destroyBlock('log'):
+            ActionReturn.retry
+        else:
+            w["foundTree"] = False
+            w["chopWood"] = False
+            ActionReturn.success
+
     print 'chopping wood! chop chop...'
     return ActionReturn.success
 
 
 def craftTable(w):
+    w["agentController"].craft("crafting_table")
     print 'crafting crafting table! table...'
     return ActionReturn.success
 
 
 def craftPlank(w):
+    w["agentController"].craft("planks")
     print 'crafting planks! plank plank...'
     return ActionReturn.success
 
 
 def craftSticks(w):
+    w["agentController"].craft("stick")
     print 'crafting sticks! stick stick...'
     return ActionReturn.success
 
 
 def craftHoe(w):
-    print 'crafting hoe! ho ho...'
+    w["agentController"].craft("wooden_hoe")
+    print 'crafting hoe! hoe hoe...'
     return ActionReturn.success
 
 
