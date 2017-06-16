@@ -137,8 +137,3 @@ class Controller(object):
 
 	def isMoving(self):
 		return self.movementSpeed != 0.0
-
-
-	def move(self, speed):
-		self.agent.sendCommand("move {}".format(speed))
-		self.movementSpeed = speed
