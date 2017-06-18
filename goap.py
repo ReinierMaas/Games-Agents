@@ -1,6 +1,7 @@
 import numpy as np
 import heapq
 import time
+import sys
 
 '''
 Okay, there are three levels of complexity we can choose
@@ -83,7 +84,11 @@ def addDict(a, b):
 # python 2.7 enum
 class ActionReturn:
     success, replanWithoutMe = range(2)
-
+    success =  0 # action was completed without issues
+    retry   = -1 # retry action next simulation-tick
+    @staticmethod
+    def failure(secondsTimeout=10): # failure, replan and don't reconsider action until timeout
+        return secondsTimeout
 
 def findTrees(w):
     ac = w["agentController"]
@@ -105,7 +110,7 @@ def chopWood(w):
         w["foundTree"] = False
         nav.findAndSet('log')
         ActionReturn.retry
-    else if not w["foundTree"]:
+    elif not w["foundTree"]:
         if nav.targetReached:
             w["foundTree"] = True
     else:
@@ -144,16 +149,29 @@ def craftHoe(w):
     return ActionReturn.success
 
 
+def harvestGrain(w):
+    print 'harvesting grain! oh no! there are is no grain, so I will plant some and check on them later'
+    return ActionReturn.failure(5)
+
+
+def bakeBread(w):
+    print 'baking bread! bake bake...'
+    return ActionReturn.success
+
+
 # dijkstra's algorithm using priority queues
-def pathfind(goals, actions, startstate):
+def pathfind(goals, actions, startstate, bannedset):
     root = Node(startstate, None, None)
 
     leafs = []  # priority queue of leafs
-    heapq.heappush(leafs, (0, Leaf(None, root, set())))
+    heapq.heappush(leafs, (0, Leaf(None, root, bannedset)))
 
     debug_node_expansions = 0
 
     while leafs:  # while not empty
+        if debug_node_expansions>=10000:
+            print 'reached max node expantions: %d' % debug_node_expansions
+            sys.exit()
         debug_node_expansions += 1
         (cost, leaf) = heapq.heappop(leafs)
         for goal in goals:
@@ -167,43 +185,74 @@ def pathfind(goals, actions, startstate):
                 aset.add(action)
                 node = Node(addDict(leaf.node.state, action.expectation), leaf.node, action)
                 heapq.heappush(leafs, (cost + action.cost, Leaf(action, node, aset)))
-    return Leaf(0, root)
-
+    return Leaf(0, root, bannedset)
 
 # simple wrapper around pathfind to make it easier to use
-def plan(startstate):
+def plan(startstate, bannedSet):
     goals = np.array([
-        Goal({'hoes': 2}),
+        Goal({'bread':1}),
     ])
     actions = np.array([
-        Action("findTrees", findTrees, {}, {'trees': 1}),
         Action("craftTable", craftTable, {'planks': 4}, {'tables': 1, 'planks': -4}),
         Action("craftPlank", craftPlank, {'logs': 1}, {'planks': 4, 'logs': -1}),
-        Action("chopWood", chopWood, {'trees': 1}, {'trees': -1, 'logs': 1}),
+        Action("chopWood", chopWood, {}, {'logs': 1}),
         Action("craftHoe", craftHoe, {'tables': 1, 'planks': 2, 'sticks': 2}, {'hoes': 1, 'planks': -2, 'sticks': -2}),
         Action("craftSticks", craftSticks, {'planks': 2}, {'sticks': 4, 'planks': -1}),
+        Action("harvestGrain", harvestGrain, {'hoes':1}, {'grain': 1}),
+        Action("bakeBread", bakeBread, {'tables': 1, 'grain': 3}, {'bread':1, 'grain':-3}),
     ])
     print 'starting goap'
     starttime = time.time()
-    leaf = pathfind(goals, actions, startstate)
+    leaf = pathfind(goals, actions, startstate, bannedSet)
     endtime = time.time()
     print 'done in %0.3f seconds' % (endtime - starttime)
     node = leaf.node
     path = []
     while node != None:
         if (node.action != None):
-
             path.append(node.action)
         node = node.prev
-    return reversed(path)
+    # reversed(list) does not reverse the list, but give you a special iterator
+    # so I'm using this funky syntax to _actually_ reverse the list
+    return path[::-1]
+
+class ActionTimeout:
+    def __init__(self, action, timeout):
+        self.action = action
+        self.timeout = timeout
+
+class Actor:
+    def __init__(self):
+        self.state = {}    # dictionary of (mostly) ints
+        self.timeouts = [] # array of ActionTimeouts
+        self.plan = [] # array of Actions
 
 
 if __name__ == '__main__':
-    state = {}
-    path = plan(state)
-    for action in path:
-        result = action.function(None)
-        if result == ActionReturn.success:
-            continue
-        if result == ActionReturn.replanWithoutMe:
-            continue  # TODO: implement
+    actors = [Actor()]
+    for i in range(0,32): # simulate multiple frames (debug)
+        print '--- FRAME %d ---' % i
+        for actor in actors:
+            # first we check out which items are currently banned
+            currentTime = time.time()
+            actor.timeouts = [timeout for timeout in actor.timeouts if not timeout.timeout<currentTime]
+            banned = set([timeout.action for timeout in actor.timeouts])
+            # check if we have to replan
+            if actor.plan == []:
+                actor.plan = plan(actor.state, banned)
+            # then perform the action if there is a goal
+            if actor.plan != []:
+                action = actor.plan[0]
+                result = action.function(None)
+                if result == ActionReturn.retry:
+                    continue
+                elif result == ActionReturn.success:
+                    del(actor.plan[0])
+                elif result > 0:
+                    # invalidate current plan and add current action to timeout
+                    actor.plan = [] 
+                    actor.timeouts.append(ActionTimeout(action, time.time()+result))
+            else:
+                print 'idling...'
+        time.sleep(1)
+
