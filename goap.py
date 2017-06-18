@@ -239,8 +239,6 @@ class Goap:
 
     def execute():
         actors = [Actor(self.state)]
-        for i in range(0,32): # simulate multiple frames (debug)
-            print '--- FRAME %d ---' % i
             for actor in actors:
                 # first we check out which items are currently banned
                 currentTime = time.time()
@@ -263,7 +261,6 @@ class Goap:
                         actor.timeouts.append(ActionTimeout(action, time.time()+result))
                 else:
                     print 'idling...'
-            time.sleep(1)
 
 
 if __name__ == '__main__':
