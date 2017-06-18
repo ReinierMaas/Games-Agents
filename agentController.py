@@ -15,7 +15,6 @@ from controller import *
 from vision import *
 import navigation as nav
 
-
 class AgentController(object):
 	""" Class used for controlling agent. """
 
@@ -25,6 +24,7 @@ class AgentController(object):
 		self.entitiesHandler = EntitiesHandler()
 		self.controller = Controller(agentHost)
 		self.navigator = nav.Navigator(self.controller)
+		self.inventory = {}
 
 
 	def updateObservation(self, observation):
@@ -34,6 +34,20 @@ class AgentController(object):
 		self.entitiesHandler.updateFromObservation(observation)
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
+		self.updateInventory(observation)
+
+	def readInvEntry(self, observation, slot, type):
+		return observation[u"Inventory_{id}_{type}".format()]
+
+	def updateInventory(self, observation):
+		inventory = {}
+		for i in range(0,40):
+			item, count = (self.readInvEntry(observation, i, "item"), \
+				self.readInvEntry(observation, i, "size"))
+			inventory[item] = int(count)
+
+		self.inventory = inventory
+
 
 
 	def destroyBlock(self, losDict, blockType, targetPosition = None):
