@@ -36,15 +36,16 @@ class AgentController(object):
 		self.intPlayerPos = getPlayerPos(observation, True)
 		self.updateInventory(observation)
 
-	def readInvEntry(self, observation, slot, type):
-		return observation[u"Inventory_{id}_{type}".format()]
+	def readInvEntry(self, observation, slot, item):
+		return observation.get(u"Inventory_{0}_{1}".format(slot, item))
 
 	def updateInventory(self, observation):
 		inventory = {}
 		for i in range(0,40):
 			item, count = (self.readInvEntry(observation, i, "item"), \
 				self.readInvEntry(observation, i, "size"))
-			inventory[item] = int(count)
+			if item is not None and count is not None:
+				inventory[item] = int(count)
 
 		self.inventory = inventory
 
