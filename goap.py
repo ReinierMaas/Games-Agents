@@ -239,28 +239,28 @@ class Goap:
 
     def execute():
         actors = [Actor(self.state)]
-            for actor in actors:
-                # first we check out which items are currently banned
-                currentTime = time.time()
-                actor.timeouts = [timeout for timeout in actor.timeouts if not timeout.timeout<currentTime]
-                banned = set([timeout.action for timeout in actor.timeouts])
-                # check if we have to replan
-                if actor.plan == []:
-                    actor.plan = plan(actor.state, banned)
-                # then perform the action if there is a goal
-                if actor.plan != []:
-                    action = actor.plan[0]
-                    result = action.function(self.meta)
-                    if result == ActionReturn.retry:
-                        continue
-                    elif result == ActionReturn.success:
-                        del(actor.plan[0])
-                    elif result > 0:
-                        # invalidate current plan and add current action to timeout
-                        actor.plan = []
-                        actor.timeouts.append(ActionTimeout(action, time.time()+result))
-                else:
-                    print 'idling...'
+        for actor in actors:
+            # first we check out which items are currently banned
+            currentTime = time.time()
+            actor.timeouts = [timeout for timeout in actor.timeouts if not timeout.timeout<currentTime]
+            banned = set([timeout.action for timeout in actor.timeouts])
+            # check if we have to replan
+            if actor.plan == []:
+                actor.plan = plan(actor.state, banned)
+            # then perform the action if there is a goal
+            if actor.plan != []:
+                action = actor.plan[0]
+                result = action.function(self.meta)
+                if result == ActionReturn.retry:
+                    continue
+                elif result == ActionReturn.success:
+                    del(actor.plan[0])
+                elif result > 0:
+                    # invalidate current plan and add current action to timeout
+                    actor.plan = []
+                    actor.timeouts.append(ActionTimeout(action, time.time()+result))
+            else:
+                print 'idling...'
 
 
 if __name__ == '__main__':
