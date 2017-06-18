@@ -159,6 +159,7 @@ def getMissionXML(generator, drawingDecorator, cubeObs = CUBE_OBS, cubeSize = CU
 							<max x="{1}" y="{1}" z="{1}"/>
 						</Grid>
 					</ObservationFromGrid>
+					<ObservationFromFullInventory/>
 				</AgentHandlers>
 			</AgentSection>
 		</Mission>""".format(cubeObs, cubeSize, generator = generator, \
