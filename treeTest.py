@@ -108,6 +108,7 @@ def getMissionXML(numTrees=2):
 					<ObservationFromNearbyEntities>
 						<Range name="{entitiesName}" xrange="30" yrange="30" zrange="30"/>
 					</ObservationFromNearbyEntities>
+					<ObservationFromFullInventory/>
 					<ObservationFromRay />
 					<ObservationFromHotBar />
 					<ObservationFromGrid>
@@ -228,6 +229,7 @@ if __name__ == "__main__":
 					continue
 
 				agent.updateObservation(observation)
+				# print "Entity counts = {}".format(agent.entitiesHandler.getEntityCounts())
 
 				if u"LineOfSight" in observation:
 					if woodLeft:

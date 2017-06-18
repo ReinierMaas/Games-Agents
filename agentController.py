@@ -36,14 +36,18 @@ class AgentController(object):
 		self.intPlayerPos = getPlayerPos(observation, True)
 		self.updateInventory(observation)
 
+
 	def readInvEntry(self, observation, slot, item):
-		return observation.get(u"Inventory_{0}_{1}".format(slot, item))
+		return observation.get(u"Inventory_{}_{}".format(slot, item))
+
 
 	def updateInventory(self, observation):
 		inventory = {}
-		for i in range(0,40):
+
+		for i in range(0, 40):
 			item, count = (self.readInvEntry(observation, i, "item"), \
 				self.readInvEntry(observation, i, "size"))
+
 			if item is not None and count is not None:
 				inventory[item] = int(count)
 
@@ -157,8 +161,10 @@ class AgentController(object):
 
 			return True
 
+
 	def craft(self, item):
-		self.controller.agent.sendCommand("craft {}".format(item))
+		self.agent.sendCommand("craft {}".format(item))
+
 
 	def collectDrops(self, dropType):
 		"""
@@ -171,6 +177,7 @@ class AgentController(object):
 		dropPositions = self.entitiesHandler.getEntityPositions(dropType)
 
 		if len(dropPositions) != 0:
+			# TODO: Use navigation...
 			self.controller.lookAt(dropPositions[0])
 			self.controller.moveForward()
 			return True

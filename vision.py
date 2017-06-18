@@ -387,3 +387,27 @@ class EntitiesHandler(object):
 		return positionsFound[sortedIndices]
 
 
+	def getEntityCounts(self, entityToFind=None):
+		"""
+		Returns a dictionairy for every entity within the visible range with
+		the amount of that entity that (e.g. : {"log": 2, "player": 1}).
+		Optionally, entityToFind can be given, and an integer is returned that
+		indicates how many of that entity is visible (0 if not).
+		"""
+		if self.entities is None:
+			return 0 if entityToFind is not None else {}
+
+		counts = {}
+
+		for entity in self.entities:
+			name = entity[u"name"]
+			counts[name] = counts.get(name, 0) + entity.get(u"quantity", 0)
+
+		if entityToFind is not None:
+			return counts.get(entityToFind, 0)
+
+		return counts
+
+
+
+

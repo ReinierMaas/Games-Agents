@@ -28,9 +28,11 @@ UNWALKABLE_BLOCKS = ["lava", "water", "air", "sapling", "cobweb", "flower",
 	"tripwire_hook", "redstone", "rail", "cactus"]
 
 
+
 ################################################################################
 # Utility functions for vectors
 ################################################################################
+
 def getVectorLength(vector):
 	""" Returns the length of the vector. """
 
@@ -110,6 +112,7 @@ def distanceV(vector1, vector2):
 # Utility functions for player handling, such as extracting player position etc
 # from observation JSON
 ################################################################################
+
 def getPlayerPos(observation, getIntVersion=False):
 	""" Returns the position of the player from the observation as a np array. """
 	x, y, z = observation[u"XPos"], observation[u"YPos"], observation[u"ZPos"]
