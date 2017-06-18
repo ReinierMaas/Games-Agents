@@ -111,10 +111,41 @@ def bulkFlagLoc(graph, locations, flag, disable):
 def getFlatWorldGenerator():
 	return """<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />"""
 
+def getAgentSections(count, cubeObs, cubeSize, name, gameMode, startX, startY, startZ, startYaw, startPitch):
+	res = ''
+	for i in range(count):
+		res += '''<AgentSection mode="{gameMode}">
+				<Name>{name}</Name>
+				<AgentStart>
+					<Placement x="{startX}" y="{startY}" z="{startZ}" yaw="{startYaw}" pitch="{startPitch}" />
+				</AgentStart>
+
+				<AgentHandlers>
+					<AbsoluteMovementCommands/>
+					<ContinuousMovementCommands />
+					<InventoryCommands />
+
+					<ObservationFromFullStats />
+					<ObservationFromRay />
+					<ObservationFromHotBar />
+					<ObservationFromGrid>
+						<Grid name="{0}">
+							<min x="-{1}" y="-{1}" z="-{1}"/>
+							<max x="{1}" y="{1}" z="{1}"/>
+						</Grid>
+					</ObservationFromGrid>
+					<ObservationFromFullInventory/>
+				</AgentHandlers>
+			</AgentSection>'''.format(cubeObs, cubeSize, startX = startX, startY = startY, startZ = startZ, \
+				startYaw = startYaw, startPitch = startPitch, name = name + i)
+
+
+
 def getMissionXML(generator, drawingDecorator, cubeObs = CUBE_OBS, cubeSize = CUBE_SIZE, startLocationAndAngles = (1.5, 7.0, 13.5,90,10), \
 	gameMode = "Survival", startTime = 10000, weather = "clear", timeLimit = 60000):
 	""" Generates mission XML with flat world and 1 crappy tree. """
 	x,y,z,yaw,pitch = startLocationAndAngles
+	agentSections = getAgentSections(1, cubeObs, cubeSize, "Agent", gameMode, x, y, z, yaw, pitch)
 	return """<?xml version="1.0" encoding="UTF-8" ?>
 		<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 			<About>
@@ -139,30 +170,8 @@ def getMissionXML(generator, drawingDecorator, cubeObs = CUBE_OBS, cubeSize = CU
 				</ServerHandlers>
 			</ServerSection>
 
-			<AgentSection mode="{gameMode}">
-				<Name>YourMom</Name>
-				<AgentStart>
-					<Placement x="{startX}" y="{startY}" z="{startZ}" yaw="{startYaw}" pitch="{startPitch}" />
-				</AgentStart>
-
-				<AgentHandlers>
-					<AbsoluteMovementCommands/>
-					<ContinuousMovementCommands />
-					<InventoryCommands />
-
-					<ObservationFromFullStats />
-					<ObservationFromRay />
-					<ObservationFromHotBar />
-					<ObservationFromGrid>
-						<Grid name="{0}">
-							<min x="-{1}" y="-{1}" z="-{1}"/>
-							<max x="{1}" y="{1}" z="{1}"/>
-						</Grid>
-					</ObservationFromGrid>
-					<ObservationFromFullInventory/>
-				</AgentHandlers>
-			</AgentSection>
-		</Mission>""".format(cubeObs, cubeSize, generator = generator, \
+			{agentSections}
+		</Mission>""".format(agentSections = agentSections, generator = generator, \
 			weather = weather, timeLimit = timeLimit, gameMode = gameMode, \
 			startX = x, startY = y, startZ = z, startYaw = yaw, startPitch = pitch, \
 			startTime = startTime, drawingDecorator = drawingDecorator)
