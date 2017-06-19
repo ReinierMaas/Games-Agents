@@ -12,6 +12,9 @@ from vision import *
 from navigation import *
 from stateMachine import *
 import worldGen
+from communication import *
+from agentController import *
+from goap import *
 
 #this setting enables pre-exploration, which means all tree and lake locations
 #are known to the agents at the start.
@@ -70,16 +73,20 @@ def setupRecording(agentHost):
 	return myMissionRecord
 
 
+def setupAgents(NUM_AGENTS, mission):
+	agents = []
+	for i in range(AGENT_COUNT):
+		host = getAgentHost()
+		myMissionRecord = setupRecording(host)
+		agents.append(Agent(i,(0,0,0), host, mission, myMissionRecord))
+	return agents
 # --- Main --- #
 
 if __name__ == "__main__":
 	sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)  # flush print output immediately
 
 	if len(sys.argv) >= 2:
-		AGENT_COUNT = sys.argv[1]
-
-	# Setup agent host
-	agentHost = getAgentHost()
+		AGENT_COUNT = int(sys.argv[1])
 
 	#generate world
 	worldGen.setSeed(55)
@@ -88,34 +95,34 @@ if __name__ == "__main__":
 	trees, treelocs = worldGen.genTrees()
 	decs = grass + lakes + trees
 	decorator = worldGen.makeDecorator(decs)
+
+	#create mission XML
 	missionXML = worldGen.getMissionXML(worldGen.getFlatWorldGenerator(), \
 		decorator, agentCount = AGENT_COUNT)
 	myMission = MalmoPython.MissionSpec(missionXML, True)
 
-	# Optionally, set up a recording
-	myMissionRecord = setupRecording(agentHost)
 
-	# Start the mission:
-	maxRetries = 3
+	# set up a client pool
+	client_pool = MalmoPython.ClientPool()
+	for x in xrange(10000, 10000 + AGENT_COUNT):
+		client_pool.add(MalmoPython.ClientInfo('127.0.0.1', x))
 
-	for retry in range(maxRetries):
-		try:
-			agentHost.startMission(myMission, myMissionRecord)
-			break
-		except RuntimeError as e:
-			if retry == maxRetries - 1:
-				print "Error starting mission:", e
-				exit(1)
-			else:
-				time.sleep(2)
+	#setup and start missions
+	agents = setupAgents(AGENT_COUNT, myMission)
 
+	for agent in agents:
+		agent.startMission(client_pool)
+
+
+	# Wait for missions to start:
 	print "Waiting for the mission to start "
-	worldState = agentHost.getWorldState()
+	for agent in agents:
+		worldState = agent.agentHost.getWorldState()
 
-	while not worldState.has_mission_begun:
-		sys.stdout.write(".")
-		time.sleep(0.1)
-		worldState = agentHost.getWorldState()
+		while not worldState.has_mission_begun:
+			sys.stdout.write(".")
+			time.sleep(0.1)
+			worldState = agent.agentHost.getWorldState()
 
 	print "\nMission running"
 	time.sleep(0.5)		# To allow observations and rendering to become ready
@@ -123,11 +130,11 @@ if __name__ == "__main__":
 
 	print "CUBE_SIZE{}".format(CUBE_SIZE)
 	# Setup vision handler, controller, etc
-	visionHandler = VisionHandler(CUBE_SIZE)
-	controller = Controller(agentHost)
 	navGraph = Graph(300, 300, 1)
-	navigator = Navigator(controller)
-	navigator.setNavGraph(navGraph)
+
+	for agent in agents:
+		agent.agentController.navigator.setNavGraph(navGraph)
+		agent.goap = Goap(agent.agentController)
 
 	if PRE_EXPLORE:
 		worldGen.bulkFlagRegion(navGraph, lakeLocs, "water", True)
@@ -135,65 +142,31 @@ if __name__ == "__main__":
 		worldGen.bulkFlagLoc(navGraph, treelocs, "log", True)
 
 	startTime = time.time()
-	routeSet = False
-	# Mission loop:
-	while worldState.is_mission_running:
-		if worldState.number_of_observations_since_last_state > 0:
-			msg = worldState.observations[-1].text
-			observation = json.loads(msg)
-			pitch = observation[u"Pitch"]
-			yaw = observation[u"Yaw"]
-
-			# TODO: Figure out how to know if the player is crouching or not...
-			playerIsCrouching = False
-			lookAt = getLookAt(observation, playerIsCrouching)
-
-			# Update vision and filter occluded blocks
-			controller.update(observation)
-
-			visionHandler.updateFromObservation(observation)
-			playerPos = controller.location
-
-			walkable = visionHandler.getWalkableBlocks()
-			#print len(walkable)
-			interestingBlocks = getInterestingBlocks(visionHandler)
-
-			navigator.updateFromVision(walkable, interestingBlocks, CUBE_SIZE)
-			if not navigator.update(autoMove = True):
-				routeSet = False
+	worldStates = [None] * AGENT_COUNT
+	while True:
+		quit = False
+		for i, agent in enumerate(agents):
+			worldStates[i] = agent.agentHost.getWorldState()
+			if not worldStates[i].is_mission_running:
+				quit = True
 
 
-			if time.time() - startTime > 5 and not routeSet:
-				startWp = navigator.lastWaypoint
-				routeSet = True
-				route = navigator.findRouteByKey(startWp, "log")
-				if route is not None:
-					print route
-					navigator.setRoute(route)
+		if quit:
+			break
+
+		for i, agent in enumerate(agents):
+			worldState = worldStates[i]
+			if worldState.number_of_observations_since_last_state > 0:
+				msg = worldState.observations[-1].text
+				observation = json.loads(msg)
+
+				agent.agentController.updateObservation(observation)
+				agent.agentController.navigator.update(autoMove = True)
+				agent.goap.updateState()
+				agent.goap.execute()
 
 
-			# # Print all the blocks that we can see
-			# print "blocks around us: \n{}".format(visionHandler.matrix)
-
-			# # Look for wood
-			# woodPositions = visionHandler.findWood()
-			# print "playerPos = {}, woodPositions = \n{}".format(playerPos, woodPositions)
-
-			# if woodPositions == []:
-			# 	# Shit, no wood visible/in range... keep moving then
-			# 	print "No wood in range!"
-			# 	agentHost.sendCommand("move 1")
-			# else:
-			# 	# Walk to the first wood block
-			# 	realWoodPos = getRealPosFromRelPos(playerPos, woodPositions[0])
-			# 	print "Wood found at relative position {} and absolute position {}".format(
-			# 		woodPositions[0], realWoodPos)
-			# 	controller.lookAtHorizontally(realWoodPos)
-			# 	agentHost.sendCommand("move 1")
-
-		for error in worldState.errors:
-			print "Error:", error.text
-
-		worldState = agentHost.getWorldState()
+			for error in worldState.errors:
+				print "Error:", error.text
 
 	print "\nMission ended!"
