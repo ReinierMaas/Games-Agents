@@ -243,8 +243,8 @@ if __name__ == "__main__":
 								print "Chopped tree down and collected all wood!"
 								agent.controller.setPitch(0)
 								agent.controller.stopMoving()
-								time.sleep(1.5)
 								agentHost.sendCommand("quit")
+								time.sleep(1.5)
 							else:
 								dropsLeft = agent.collectDrops(BLOCK_WOOD)
 						else:

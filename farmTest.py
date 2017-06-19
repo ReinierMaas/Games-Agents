@@ -199,8 +199,7 @@ if __name__ == "__main__":
 
 				# Check if we have enough seeds left
 				if not agent.inventoryHandler.hasItemInHotbar(SEEDS):
-					print "We've run out of seeds... Time to give up on life..."
-					print "Goodbye fuckers\n"
+					print "\n\nWe've run out of seeds... Time to give up on life... Goodbye fuckers\n\n"
 					agentHost.sendCommand("quit")
 					time.sleep(1.5)
 
