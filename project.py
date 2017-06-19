@@ -19,7 +19,7 @@ from goap import *
 #this setting enables pre-exploration, which means all tree and lake locations
 #are known to the agents at the start.
 PRE_EXPLORE = True
-AGENT_COUNT = 1
+AGENT_COUNT = 2
 
 def getAgentHost():
 	""" Creates agent host connection and parses commandline arguments. """

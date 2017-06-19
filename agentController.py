@@ -29,6 +29,7 @@ class AgentController(object):
 
 	def updateObservation(self, observation):
 		""" Updates handlers with observations. """
+		self.losDict = observation.get(u"LineOfSight", None)
 		self.controller.update(observation)
 		self.visionHandler.updateFromObservation(observation)
 		self.entitiesHandler.updateFromObservation(observation)
@@ -55,7 +56,7 @@ class AgentController(object):
 
 
 
-	def destroyBlock(self, losDict, blockType, targetPosition = None):
+	def destroyBlock(self, blockType, targetPosition = None):
 		"""
 		Destroys block(s) of the given blockType, at the given targetPosition.
 		If targetPosition is not given, then the agent will look around	for
@@ -126,14 +127,14 @@ class AgentController(object):
 		self.controller.lookAt(realBlockPos)
 
 		# Check line of sight to see if we have targeted the right block
-		losBlock = getLineOfSightBlock(losDict)
-		losBlockType = losDict[u"type"]
+		losBlock = getLineOfSightBlock(self.losDict)
+		losBlockType = self.losDict[u"type"]
 		relBlockPos = losBlock - self.intPlayerPos
 		x, y, z = relBlockPos
 		visionBlockIsCorrectType = self.visionHandler.isBlock(x, y, z, blockType)
 
 		# If we are close enough to the target block, start punching it
-		inRange = losDict[u"inRange"]
+		inRange = self.losDict[u"inRange"]
 
 		if inRange and ((losBlock == usableBlockPos).all() or \
 		visionBlockIsCorrectType or losBlockType == blockType):
