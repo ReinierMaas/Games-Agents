@@ -135,6 +135,13 @@ class WaypointNode(object):
 			self.graph.flaggedNodes[flag] = set([self])
 			#print self
 
+
+	def removeFlag(self, flag):
+		if flag in self.graph.flaggedNodes:
+			if self in self.graph.flaggedNodes[flag]:
+				self.graph.flaggedNodes[flag].remove(self)
+
+
 def euclidianDistance(wp1, wp2):
 	"""returns the euclidian distance between 2 waypoints"""
 	(x1,y1,z1) = wp1.location
@@ -329,11 +336,17 @@ class Navigator(object):
 		else:
 			return None
 
-	def findAndSet(self, key, filters = None):
+	def findAndSet(self, key, flag = None, filters = None):
 		""" Find the route to the closest waypoint with given key, and set it as the current route"""
+		""" flag causes you to flag the destination node with given argument """
+		""" returns destination node """
 		route = self.findRouteByKey(self.lastWaypoint, key, filters)
 		if route is not None:
 			self.setRoute(route)
+			if flag is not None:
+				route[-1].setFlag(flag)
+
+			return route[-1]
 
 	def findRouteByKey(self, startWp, key, filters = None):
 		"""Find the shortest overall route from the start waypoint to a waypoint that contains given key"""

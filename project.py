@@ -134,7 +134,8 @@ if __name__ == "__main__":
 
 	for agent in agents:
 		agent.agentController.navigator.setNavGraph(navGraph)
-		agent.goap = Goap(agent.agentController)
+		agent.goap = Goap(agent.agentController, AGENT_COUNT)
+
 
 	if PRE_EXPLORE:
 		worldGen.bulkFlagRegion(navGraph, lakeLocs, "water", True)
