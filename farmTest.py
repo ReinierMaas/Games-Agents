@@ -17,14 +17,15 @@ from agentController import *
 
 
 
-HOES = ["wooden_hoe", "stone_hoe", "iron_hoe", "gold_hoe", "diamond_hoe"]
+HOES = [u"wooden_hoe", u"stone_hoe", u"iron_hoe", u"gold_hoe", u"diamond_hoe"]
 HOE_TO_FUCK = HOES[-1]			# We use the most expensive bitch hoe available
 HOE_HOTBAR_SLOT = 0
 
-SEEDS = "wheat_seeds"			# What malmo/minecraft uses internally
+SEEDS = u"wheat_seeds"			# What malmo/minecraft uses internally
+NUM_SEEDS = 15
 SEEDS_HOTBAR_SLOT = 1
-GRASS = "grass"
-FARM_LAND = "farmland"
+GRASS = u"grass"
+FARM_LAND = u"farmland"
 
 
 
@@ -61,7 +62,7 @@ def getMissionXML(numTrees=2):
 
 					<Inventory>
 						<InventoryBlock slot="{hoeSlot}" type="{hoe}" quantity="1"/>
-						<InventoryBlock slot="{seedsSlot}" type="{seeds}" quantity="64"/>
+						<InventoryBlock slot="{seedsSlot}" type="{seeds}" quantity="{numSeeds}"/>
 					</Inventory>
 				</AgentStart>
 
@@ -88,8 +89,8 @@ def getMissionXML(numTrees=2):
 			</AgentSection>
 
 		</Mission>""".format(hoe=HOE_TO_FUCK, hoeSlot=HOE_HOTBAR_SLOT,
-			seeds=SEEDS, seedsSlot=SEEDS_HOTBAR_SLOT, entitiesName=ENTITIES_OBS,
-			gridName=CUBE_OBS, gridSize=CUBE_SIZE)
+			seeds=SEEDS, seedsSlot=SEEDS_HOTBAR_SLOT, numSeeds = NUM_SEEDS,
+			entitiesName=ENTITIES_OBS, gridName=CUBE_OBS, gridSize=CUBE_SIZE)
 
 
 def getAgentHost():
@@ -186,8 +187,7 @@ if __name__ == "__main__":
 				# Get observation info
 				msg = worldState.observations[-1].text
 				observation = json.loads(msg)
-
-				print "observation = {}".format(observation)
+				# print "observation = {}".format(observation)
 
 				if u"XPos" not in observation:
 					print "Fuck you Malmo, gimme mah playahPos"
@@ -198,14 +198,18 @@ if __name__ == "__main__":
 				agent.updateObservation(observation)
 
 				# Check if we have enough seeds left
+				if not agent.inventoryHandler.hasItemInHotbar(SEEDS):
+					print "We've run out of seeds... Time to give up on life..."
+					print "Goodbye fuckers\n"
+					agentHost.sendCommand("quit")
+					time.sleep(1.5)
 
 				# Get positions of grass and farmland for agent so we can farm
 				relGrassPositions = agent.visionHandler.findBlocks(GRASS)
 				relFarmLandPositions = agent.visionHandler.findBlocks(FARM_LAND)
 
 				if len(relFarmLandPositions) > 0:
-					# Of course, Malmo is 0-indexed but minecraft is 1-indexed...
-					agent.controller.selectHotbar(SEEDS_HOTBAR_SLOT + 1)
+					agent.controller.selectHotbar(SEEDS_HOTBAR_SLOT)
 					farmLandPos = agent.playerPos + relFarmLandPositions[0]
 					placedSeeds = agent.useItem(farmLandPos)
 
@@ -216,8 +220,7 @@ if __name__ == "__main__":
 						# print "Trying to plant seeds at {}".format(farmLandPos)
 						pass
 				elif len(relGrassPositions) > 0:
-					# Of course, Malmo is 0-indexed but minecraft is 1-indexed...
-					agent.controller.selectHotbar(HOE_HOTBAR_SLOT + 1)
+					agent.controller.selectHotbar(HOE_HOTBAR_SLOT)
 					grassPos = agent.playerPos + relGrassPositions[0]
 					tiledDirt = agent.placeBlock(grassPos)
 

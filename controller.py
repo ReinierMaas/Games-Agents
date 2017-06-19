@@ -41,9 +41,9 @@ class Controller(object):
 
 
 	def selectHotbar(self, hotbar):
-		""" Selects a given hotbar. Note that the first hotbar is element 1! """
-		self.agent.sendCommand("hotbar.{} 1".format(hotbar))
-		self.agent.sendCommand("hotbar.{} 0".format(hotbar))
+		""" Selects a given hotbar, use 0-indexed values for hotbar! """
+		self.agent.sendCommand("hotbar.{} 1".format(hotbar + 1))
+		self.agent.sendCommand("hotbar.{} 0".format(hotbar + 1))
 		currentHotbar = hotbar
 
 

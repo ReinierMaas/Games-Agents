@@ -11,8 +11,9 @@ import time
 
 from util import *
 from math import *
-from controller import *
 from vision import *
+from inventory import *
+from controller import *
 import navigation as nav
 
 
@@ -26,8 +27,7 @@ class AgentController(object):
 		self.entitiesHandler = EntitiesHandler()
 		self.controller = Controller(agentHost)
 		self.navigator = nav.Navigator(self.controller)
-		self.inventory = {}
-		self.hotbar = {}
+		self.inventoryHandler = InventoryHotbar()
 
 
 	def updateObservation(self, observation):
@@ -35,32 +35,9 @@ class AgentController(object):
 		self.controller.update(observation)
 		self.visionHandler.updateFromObservation(observation)
 		self.entitiesHandler.updateFromObservation(observation)
+		self.inventoryHandler.updateFromObservation(observation)
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
-		self.updateInventory(observation)
-		self.updateHotbar(observation)
-
-
-	def __readInvEntry(self, observation, slot, item):
-		return observation.get(u"Inventory_{}_{}".format(slot, item))
-
-
-	def updateInventory(self, observation):
-		inventory = {}
-
-		for i in range(0, 40):
-			item, count = (self.__readInvEntry(observation, i, "item"), \
-				self.__readInvEntry(observation, i, "size"))
-
-			if item is not None and count is not None:
-				inventory[item] = int(count)
-
-		self.inventory = inventory
-		print "inventory = {}".format(inventory)
-
-
-	def updateHotbar(self, observation)
-
 
 
 	def destroyBlock(self, losDict, blockType, targetPosition = None):
