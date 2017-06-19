@@ -130,7 +130,7 @@ def chopWood(w):
                 return ActionReturn.failure
 
 
-    return ActionReturn.failure
+    return ActionReturn.success
 
 
 def craftTable(w):
@@ -245,7 +245,6 @@ class Goap:
         self.meta["agentController"] = agentController
         self.meta["id"] = goap_gid
         self.meta["filters"] = [i+1 if i >= goap_gid else i for i in range(agentCount - 1)]
-        print self.meta
         goap_gid += 1
         self.state = {}
 
