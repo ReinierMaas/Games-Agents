@@ -310,19 +310,28 @@ class Navigator(object):
 
 		return True
 
-	def findRoutesByKey(self, startWp, key):
+	def findRoutesByKey(self, startWp, key, filters = None):
 		"""Find the shortest routes from the start waypoint to all waypoints that contain a given key"""
+		def removeUnwanted(node):
+			flags = node.getFlags()
+			for flag in flags:
+				if flag in filters:
+					return False
+			return True
+
 		graph = startWp.graph
 		nodes = list(graph.findNodes(key))
 		nodes = filter(lambda node: isConnected(node), nodes)
+		if filters is not None:
+			nodes = filter(removeUnwanted, nodes)
 		if nodes:
 			return map(lambda node: Astar(startWp, node, euclidianDistance), nodes)
 		else:
 			return None
 
-	def findAndSet(self, key):
+	def findAndSet(self, key, filters = None):
 		""" Find the route to the closest waypoint with given key, and set it as the current route"""
-		route = self.findRouteByKey(self.lastWaypoint, key)
+		route = self.findRouteByKey(self.lastWaypoint, key, filters)
 		if route is not None:
 			self.setRoute(route)
 
@@ -352,3 +361,4 @@ class Navigator(object):
 	def findRoute(startWp, endWp):
 		"""Find the route from the start waypoint to the end waypoint"""
 		return Astar(startWp, endWp, euclidianDistance)
+
