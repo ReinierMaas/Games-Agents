@@ -234,10 +234,10 @@ class Goap:
         self.meta["agentController"] = agentController
         self.state = {}
 
-    def updateState():
+    def updateState(self):
         self.state = self.meta["agentController"].inventory
 
-    def execute():
+    def execute(self):
         actors = [Actor(self.state)]
         for actor in actors:
             # first we check out which items are currently banned

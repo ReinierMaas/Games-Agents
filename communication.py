@@ -7,16 +7,19 @@ import time
 import uuid
 import random
 from collections import namedtuple
+from agentController import *
 
 class Agent:
-    def __init__(self, agentID, location, goapState):
+    def __init__(self, agentID, location, host, mission, missionRecord):
         self.agentID = agentID  # int
         self.location = location  # (float, float, float)
-        self.goapState = goapState  # int dict
+        self.goap = None # goap class
         self.currentPlan = []  # Action list
         self.messageCounter = 0  # messages sent by the agent
-        self.agentHost = MalmoPython.AgentHost() # ?
-        self.missionRecordSpec = MalmoPython.MissionRecordSpec() # ?
+        self.agentHost = host
+        self.missionRecordSpec = missionRecord
+        self.missionSpec = mission
+        self.agentController = AgentController(host)
 
     def sendQuery(self, content):
         ret = json.dump({'type': 'Q',
