@@ -112,7 +112,7 @@ def getFlatWorldGenerator():
 	return """<FlatWorldGenerator generatorString="3;7,5*3,2;1;" forceReset="true" />"""
 
 def getAgentSections(count, cubeObs, cubeSize, name, gameMode, startX, startY, startZ, startYaw, startPitch):
-	res = ''
+	res = ""
 	for i in range(count):
 		res += '''<AgentSection mode="{gameMode}">
 				<Name>{name}</Name>
@@ -137,9 +137,8 @@ def getAgentSections(count, cubeObs, cubeSize, name, gameMode, startX, startY, s
 					<ObservationFromFullInventory/>
 				</AgentHandlers>
 			</AgentSection>'''.format(cubeObs, cubeSize, startX = startX, startY = startY, startZ = startZ, \
-				startYaw = startYaw, startPitch = startPitch, name = name + i)
-
-
+				startYaw = startYaw, startPitch = startPitch, name = name + str(i), gameMode = gameMode)
+	return res
 
 def getMissionXML(generator, drawingDecorator, cubeObs = CUBE_OBS, cubeSize = CUBE_SIZE, startLocationAndAngles = (1.5, 7.0, 13.5,90,10), \
 	gameMode = "Survival", startTime = 10000, weather = "clear", timeLimit = 60000):
