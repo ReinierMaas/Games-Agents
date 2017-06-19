@@ -233,8 +233,7 @@ if __name__ == "__main__":
 
 				if u"LineOfSight" in observation:
 					if woodLeft:
-						woodLeft = agent.destroyBlock(observation[u"LineOfSight"],
-							BLOCK_WOOD, treePos)
+						woodLeft = agent.destroyBlock(BLOCK_WOOD, treePos)
 					else:
 						# Check if we have destroyed all the trees...
 						if treeNr >= len(treePositions) - 1:
