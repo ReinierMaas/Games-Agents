@@ -28,6 +28,7 @@ class AgentController(object):
 		self.controller = Controller(agentHost)
 		self.navigator = nav.Navigator(self.controller)
 		self.inventoryHandler = InventoryHotbar()
+		self.goapState = {}
 
 
 	def updateObservation(self, observation):
@@ -39,7 +40,21 @@ class AgentController(object):
 		self.inventoryHandler.updateFromObservation(observation)
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
+		self.updateGoapState(observation)
 
+	def updateGoapState(self, observation):
+		def readInvEntry(observation, slot, item):
+			return observation.get(u"Inventory_{}_{}".format(slot, item))
+		inventory = {}
+
+		for i in range(0, 40):
+			item, count = (readInvEntry(observation, i, "item"), \
+				readInvEntry(observation, i, "size"))
+
+			if item is not None and count is not None:
+				inventory[item] = int(count)
+
+		self.inventory = inventory
 
 	def destroyBlock(self, blockType, targetPosition = None):
 		"""

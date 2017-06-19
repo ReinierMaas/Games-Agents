@@ -335,10 +335,18 @@ class Navigator(object):
 		if route is not None:
 			self.setRoute(route)
 
-	def findRouteByKey(self, startWp, key):
+	def findRouteByKey(self, startWp, key, filters = None):
 		"""Find the shortest overall route from the start waypoint to a waypoint that contains given key"""
+		def removeUnwanted(node):
+			flags = node.getFlags()
+			for flag in flags:
+				if flag in filters:
+					return False
+			return True
 		graph = startWp.graph
 		nodes = list(graph.findNodes(key))
+		if filters is not None:
+			nodes = filter(removeUnwanted, nodes)
 		target = None
 		minDist = float('inf')
 		for node in nodes:
