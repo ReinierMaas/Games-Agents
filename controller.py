@@ -115,6 +115,23 @@ class Controller(object):
 		return self.attacking
 
 
+	def useItem(self):
+		""" Makes the agent use an item/place a block """
+		self.agent.sendCommand("use 1")
+		self.agent.sendCommand("use 0")
+
+
+	def placeBlock(self):
+		""" Makes the agent place a block """
+		self.useItem()
+
+
+	def jump(self):
+		""" Makes the agent jump once """
+		self.agent.sendCommand("jump 1")
+		self.agent.sendCommand("jump 0")
+
+
 	def moveForward(self, movementSpeed = 1.0):
 		""" Starts moving the agent forward. Ensure that movementSpeed >= 0.0 """
 		self.movementSpeed = movementSpeed

@@ -15,6 +15,8 @@ from controller import *
 from vision import *
 import navigation as nav
 
+
+
 class AgentController(object):
 	""" Class used for controlling agent. """
 
@@ -25,6 +27,7 @@ class AgentController(object):
 		self.controller = Controller(agentHost)
 		self.navigator = nav.Navigator(self.controller)
 		self.inventory = {}
+		self.hotbar = {}
 
 
 	def updateObservation(self, observation):
@@ -35,9 +38,10 @@ class AgentController(object):
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
 		self.updateInventory(observation)
+		self.updateHotbar(observation)
 
 
-	def readInvEntry(self, observation, slot, item):
+	def __readInvEntry(self, observation, slot, item):
 		return observation.get(u"Inventory_{}_{}".format(slot, item))
 
 
@@ -45,13 +49,17 @@ class AgentController(object):
 		inventory = {}
 
 		for i in range(0, 40):
-			item, count = (self.readInvEntry(observation, i, "item"), \
-				self.readInvEntry(observation, i, "size"))
+			item, count = (self.__readInvEntry(observation, i, "item"), \
+				self.__readInvEntry(observation, i, "size"))
 
 			if item is not None and count is not None:
 				inventory[item] = int(count)
 
 		self.inventory = inventory
+		print "inventory = {}".format(inventory)
+
+
+	def updateHotbar(self, observation)
 
 
 
@@ -160,6 +168,56 @@ class AgentController(object):
 				self.controller.moveForward(movementSpeed)
 
 			return True
+
+
+
+	def placeBlock(self, targetPosition, jumpOnPlacement = False):
+		"""
+		If the agent is currently holding a block (check it yourself), then this
+		function will attempt to place that block exactly on the targetPosition.
+		Since Malmo's LineOfSight coordinates are as thrustworthy as the local
+		homeless crack-addicted whores on heroine, we walk over to the target
+		position and then place the block below our feet. Optionally, the agent
+		can be made to jump on placing the block. Note that Malmo does not
+		distinguish between placing a block and using e.g. a door... Because
+		obviously that makes total sense.
+
+		Note that this function works the opposite of destroyBlock(), it will
+		return False until it has actually placed the block, after that moment
+		it will return True
+		"""
+
+		# Check distance to targetPosition and navigate towards it
+		distanceToTarget = distanceH(self.playerPos, targetPosition)
+		movementSpeed = distanceToTarget / 3.5
+		closeEnough = 0.3
+
+		if distanceToTarget > closeEnough:
+			# Target is not below our feet, move towards it!
+			# TODO: Use proper navigation
+			# print "Target is not below our feet, moving towards it!"
+			self.controller.lookAt(targetPosition)
+			self.controller.moveForward(movementSpeed)
+			return False
+
+		# Look down at it and place the block
+		self.controller.stopMoving()
+		self.controller.lookAt(targetPosition)
+
+		if jumpOnPlacement:
+			print "JUMP! TODO: Finish jump"
+
+		self.controller.placeBlock()
+		return True
+
+
+	def useItem(self, targetPosition, jumpOnUse = False):
+		"""
+		Malmo does not differentiate between placing a block and using e.g. a
+		door, so this is just a wrapper function for better code readability.
+		"""
+		return self.placeBlock(targetPosition, jumpOnUse)
+
 
 
 	def craft(self, item):

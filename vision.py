@@ -105,7 +105,8 @@ class VisionHandler(object):
 		Returns a np array of np.array([x, y, z]) coordinates, where the given
 		block is. An empty list is returned if the block cant be found. The
 		returned list is sorted by distance from the player, so the closest
-		blocks will be returned first.
+		blocks will be returned first. This list returns coordinates relative
+		to the player position.
 		"""
 		coordinates = []
 		distances = []
