@@ -16,6 +16,7 @@ import worldGen
 #this setting enables pre-exploration, which means all tree and lake locations
 #are known to the agents at the start.
 PRE_EXPLORE = True
+AGENT_COUNT = 1
 
 def getAgentHost():
 	""" Creates agent host connection and parses commandline arguments. """
@@ -74,6 +75,9 @@ def setupRecording(agentHost):
 if __name__ == "__main__":
 	sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)  # flush print output immediately
 
+	if len(sys.argv) >= 2:
+		AGENT_COUNT = sys.argv[1]
+
 	# Setup agent host
 	agentHost = getAgentHost()
 
@@ -85,7 +89,7 @@ if __name__ == "__main__":
 	decs = grass + lakes + trees
 	decorator = worldGen.makeDecorator(decs)
 	missionXML = worldGen.getMissionXML(worldGen.getFlatWorldGenerator(), \
-		decorator)
+		decorator, agentCount = AGENT_COUNT)
 	myMission = MalmoPython.MissionSpec(missionXML, True)
 
 	# Optionally, set up a recording

@@ -141,10 +141,10 @@ def getAgentSections(count, cubeObs, cubeSize, name, gameMode, startX, startY, s
 	return res
 
 def getMissionXML(generator, drawingDecorator, cubeObs = CUBE_OBS, cubeSize = CUBE_SIZE, startLocationAndAngles = (1.5, 7.0, 13.5,90,10), \
-	gameMode = "Survival", startTime = 10000, weather = "clear", timeLimit = 60000):
+	gameMode = "Survival", startTime = 10000, weather = "clear", timeLimit = 60000, agentCount = 1):
 	""" Generates mission XML with flat world and 1 crappy tree. """
 	x,y,z,yaw,pitch = startLocationAndAngles
-	agentSections = getAgentSections(1, cubeObs, cubeSize, "Agent", gameMode, x, y, z, yaw, pitch)
+	agentSections = getAgentSections(agentCount, cubeObs, cubeSize, "Agent", gameMode, x, y, z, yaw, pitch)
 	return """<?xml version="1.0" encoding="UTF-8" ?>
 		<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 			<About>
