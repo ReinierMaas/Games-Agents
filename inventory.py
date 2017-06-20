@@ -125,6 +125,20 @@ class InventoryHotbar(object):
 
 
 
+	def getCombinedDict(self):
+		"""
+		Returns the combined dictionaries of both inventory and hotbar amounts,
+		where the final dict has name/amount key/value pairs.
+		"""
+		combined = {}
+		combined.update(self.inventoryAmount)
+
+		for itemName in self.hotbarAmount:
+			combined[itemName] = combined.get(itemName, 0) + self.hotbarAmount[itemName]
+
+		return combined
+
+
 	def getInventorySlot(self, itemName):
 		"""
 		Returns the first slot for the inventory in which the given item is, or
