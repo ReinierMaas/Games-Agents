@@ -123,6 +123,8 @@ def chopWood(w):
             w["chopWood"] = False
             if w["destination"] is not None:
                 w["destination"].removeFlag(w["id"])
+                w["destination"].removeFlag("log")
+                ac.controller.setPitch(-10)
                 w["destination"] = None
                 return ActionReturn.success
             else:
