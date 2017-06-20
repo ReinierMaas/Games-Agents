@@ -262,7 +262,7 @@ class Goap:
 			action = self.plan[0]
 			result = action.function(self.meta)
 			if result == ActionReturn.retry:
-				continue
+				return
 			elif result == ActionReturn.success:
 				del(self.plan[0])
 			elif result > 0:
