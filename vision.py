@@ -10,7 +10,7 @@ from util import *
 ################################################################################
 
 CUBE_OBS = "vision_cube"		# Name that will be used in XML/JSON
-CUBE_SIZE = 6 					# Number of visible blocks in 1 direction
+CUBE_SIZE = 1 					# Number of visible blocks in 1 direction
 
 ENTITIES_OBS = "entities"		# Name that will be used in XML/JSON
 ENTITIES_RANGE = 25				# Number of blocks in 1 direction that we can
@@ -66,6 +66,10 @@ class VisionHandler(object):
 		self.matrix = np.swapaxes(temp, 1, 2)
 		self.__filterOccluded()
 
+
+	def inVisionRange(self, relX, relY, relZ):
+		""" Returns True/False if the given relative coords are within vision range. """
+		return self.areValidRelCoords(relX, relY, relZ)
 
 
 	def areValidRelCoords(self, relX, relY, relZ):

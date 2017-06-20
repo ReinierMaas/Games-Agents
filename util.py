@@ -16,7 +16,8 @@ TRANSPARANT_BLOCKS = ["glass", "air", "sapling", "cobweb", "flower", "mushroom",
 	"torch", "ladder", "fence", "iron_bars", "glass_pane", "vines", "lily_pad",
 	"sign", "item_frame", "flower_pot", "skull", "armor_stand", "banner", "tall_grass",
 	"lever", "pressure_plate", "redstone_torch", "button", "trapdoor", "tripwire",
-	"tripwire_hook", "redstone", "rail", "beacon", "cauldron", "brewing_stand"]
+	"tripwire_hook", "redstone", "rail", "beacon", "cauldron", "brewing_stand",
+	"wheat"]
 
 BLOCK_WOOD = "log"
 
@@ -26,6 +27,16 @@ UNWALKABLE_BLOCKS = ["lava", "water", "air", "sapling", "cobweb", "flower",
 	"mushroom", "torch", "vines", "sign", "item_frame",  "armor_stand",
 	"banner", "tall_grass",	"lever", "redstone_torch", "button", "tripwire",
 	"tripwire_hook", "redstone", "rail", "cactus"]
+
+
+# Some more constants for farming
+HOES = [u"wooden_hoe", u"stone_hoe", u"iron_hoe", u"gold_hoe", u"diamond_hoe"]
+SEEDS = u"wheat_seeds"			# The seeds item you use to plant seeds
+BLOCK_WHEAT = u"wheat"			# Seeds as a block, placed/planted on farmland
+BLOCK_GRASS = u"grass"
+BLOCK_FARM_LAND = u"farmland"
+
+WHEAT_FULLY_GROWN_AGE = 7		# If age property of wheat is 7, its fully grown
 
 
 
@@ -157,15 +168,28 @@ def getLookAt(observation, playerIsCrouching):
 
 
 
-def getLineOfSightBlock(lineOfSightDict, getIntVersion=True):
+def getLineOfSightBlock(losDict, getIntVersion=True):
 	""" Returns real position of the line of sight block as an int np array. """
 
 	# We offset x by -1.0 because minecraft has a shitty coordinate system etc
-	losBlock = np.array([lineOfSightDict[u"x"], lineOfSightDict[u"y"],
-		lineOfSightDict[u"z"]])
+	losBlock = np.array([losDict[u"x"], losDict[u"y"],
+		losDict[u"z"]])
 	# print("util: losBlock = {}".format(losBlock))
 	return np.round(losBlock).astype(int) if getIntVersion else losBlock
 
+
+def wheatFullyGrown(losDict):
+	"""
+	Returns True/False indicating if the (wheat) block we're looking at is
+	fully grown.
+	"""
+	if losDict is None:
+		return False
+
+	if losDict[u"type"] != BLOCK_WHEAT:
+		return False
+
+	return losDict.get(u"prop_age", -1) == WHEAT_FULLY_GROWN_AGE
 
 
 def eprint(*args, **kwargs):

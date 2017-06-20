@@ -16,17 +16,14 @@ from util import *
 from agentController import *
 
 
-
-HOES = [u"wooden_hoe", u"stone_hoe", u"iron_hoe", u"gold_hoe", u"diamond_hoe"]
-HOE_TO_FUCK = HOES[-1]			# We use the most expensive bitch hoe available
+# Some config for this example
 HOE_HOTBAR_SLOT = 0
-
-SEEDS = u"wheat_seeds"			# What malmo/minecraft uses internally
-NUM_SEEDS = 15
 SEEDS_HOTBAR_SLOT = 1
-GRASS = u"grass"
-FARM_LAND = u"farmland"
 
+HOE_TO_FUCK = HOES[-1]			# We use the most expensive bitch hoe available
+NUM_SEEDS = 16
+
+PLAYER_NAME = "MalmoSucksBalls"
 
 
 def getMissionXML(numTrees=2):
@@ -56,7 +53,7 @@ def getMissionXML(numTrees=2):
 			</ServerSection>
 
 			<AgentSection mode="Survival">
-				<Name>MalmoSucksBalls</Name>
+				<Name>{playerName}</Name>
 				<AgentStart>
 					<Placement x="0.5" y="7.0" z="0.5" yaw="90" />
 
@@ -69,6 +66,7 @@ def getMissionXML(numTrees=2):
 				<AgentHandlers>
 					<AbsoluteMovementCommands/>
 					<ContinuousMovementCommands />
+					<ChatCommands />
 					<InventoryCommands />
 					<MissionQuitCommands />
 
@@ -88,7 +86,8 @@ def getMissionXML(numTrees=2):
 				</AgentHandlers>
 			</AgentSection>
 
-		</Mission>""".format(hoe=HOE_TO_FUCK, hoeSlot=HOE_HOTBAR_SLOT,
+		</Mission>""".format(playerName=PLAYER_NAME,
+			hoe=HOE_TO_FUCK, hoeSlot=HOE_HOTBAR_SLOT,
 			seeds=SEEDS, seedsSlot=SEEDS_HOTBAR_SLOT, numSeeds = NUM_SEEDS,
 			entitiesName=ENTITIES_OBS, gridName=CUBE_OBS, gridSize=CUBE_SIZE)
 
@@ -178,8 +177,32 @@ if __name__ == "__main__":
 
 		# Setup agent handler and first target grass
 		agent = AgentController(agentHost)
-		tiledDirt = False
-		placedSeeds = False
+		targetPosition = None
+		i = 0
+		plantedSeeds = False
+
+		# Plant grass in a 4x4 area
+		relGrassPositions = [
+			np.array([0, -1, 0]), np.array([0, -1, 1]),
+			np.array([0, -1, 2]), np.array([0, -1, 3]),
+
+			np.array([1, -1, 0]), np.array([1, -1, 1]),
+			np.array([1, -1, 2]), np.array([1, -1, 3]),
+
+			np.array([2, -1, 0]), np.array([2, -1, 1]),
+			np.array([2, -1, 2]), np.array([2, -1, 3]),
+
+			np.array([3, -1, 0]), np.array([3, -1, 1]),
+			np.array([3, -1, 2]), np.array([3, -1, 3]),
+		]
+
+		# Absolute positions of the grass, playerPos will be added to
+		# relGrassPositions later, resulting in absolute grassPositions
+		grassPositions = []
+
+		# Give agent some bonemeal since we cant do it via Malmo
+		agentHost.sendCommand("chat Cheating myself some bonemeal for testing...")
+		agentHost.sendCommand("chat /give {} bone 10".format(PLAYER_NAME))
 
 		# Mission loop:
 		while worldState.is_mission_running:
@@ -187,50 +210,41 @@ if __name__ == "__main__":
 				# Get observation info
 				msg = worldState.observations[-1].text
 				observation = json.loads(msg)
-				# print "observation = {}".format(observation)
 
 				if u"XPos" not in observation:
-					print "Fuck you Malmo, gimme mah playahPos"
+					print "Fuck you Malmo, gimme mah playerPos"
 					time.sleep(0.1)
 					worldState = agentHost.getWorldState()
 					continue
 
 				agent.updateObservation(observation)
 
+				if grassPositions == []:
+					# Add original player pos to relGrassPositions
+					[grassPositions.append(agent.playerPos + relPos) for relPos in relGrassPositions]
+
 				# Check if we have enough seeds left
 				if not agent.inventoryHandler.hasItemInHotbar(SEEDS):
 					print "\n\nWe've run out of seeds... Time to give up on life... Goodbye fuckers\n\n"
+					print "The wheat we're currently looking at is fully grown: {}".format(
+						wheatFullyGrown(observation.get(u"LineOfSight")))
+
 					agentHost.sendCommand("quit")
 					time.sleep(1.5)
 
-				# Get positions of grass and farmland for agent so we can farm
-				relGrassPositions = agent.visionHandler.findBlocks(GRASS)
-				relFarmLandPositions = agent.visionHandler.findBlocks(FARM_LAND)
-
-				if len(relFarmLandPositions) > 0:
-					agent.controller.selectHotbar(SEEDS_HOTBAR_SLOT)
-					farmLandPos = agent.playerPos + relFarmLandPositions[0]
-					placedSeeds = agent.useItem(farmLandPos)
-
-					if placedSeeds:
-						# print "Planted seeds at {}".format(farmLandPos)
-						pass
+				# Get new targetPosition if we have planted seeds
+				if not plantedSeeds:
+					if i < len(relGrassPositions):
+						targetPosition = grassPositions[i]
+						i += 1
 					else:
-						# print "Trying to plant seeds at {}".format(farmLandPos)
-						pass
-				elif len(relGrassPositions) > 0:
-					agent.controller.selectHotbar(HOE_HOTBAR_SLOT)
-					grassPos = agent.playerPos + relGrassPositions[0]
-					tiledDirt = agent.placeBlock(grassPos)
+						print "Got all target positions!"
 
-					if tiledDirt:
-						# print "Tiled dirt at {}".format(grassPos)
-						pass
-					else:
-						# print "Trying to tile dirt at {}".format(grassPos)
-						pass
-				else:
-					print "No farmland and grass in sight!"
+				plantedSeeds = agent.tileGrassAndPlantSeeds(targetPosition,
+					HOE_HOTBAR_SLOT, SEEDS_HOTBAR_SLOT)
+
+				# Check age of wheat
+				losDict = observation.get(u"LineOfSight")
 
 			for error in worldState.errors:
 				print "Error:", error.text
