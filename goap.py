@@ -240,7 +240,7 @@ class Goap:
         self.meta["agentController"] = agentController
         self.meta["id"] = goap_gid
         self.meta["filters"] = [i+1 if i >= goap_gid else i for i in range(agentCount - 1)]
-        self.state = state.copy()    # dictionary of (mostly) ints
+        self.state = {} # dictionary of ints
         self.timeouts = [] # array of ActionTimeouts
         self.plan = [] # array of Actions
         goap_gid += 1
