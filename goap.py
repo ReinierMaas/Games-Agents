@@ -231,13 +231,6 @@ class ActionTimeout:
         self.action = action
         self.timeout = timeout
 
-class Actor:
-    def __init__(self, state):
-        self.state = state.copy()    # dictionary of (mostly) ints
-        self.timeouts = [] # array of ActionTimeouts
-        self.plan = [] # array of Actions
-
-
 goap_gid = 0
 
 class Goap:
@@ -247,6 +240,9 @@ class Goap:
         self.meta["agentController"] = agentController
         self.meta["id"] = goap_gid
         self.meta["filters"] = [i+1 if i >= goap_gid else i for i in range(agentCount - 1)]
+        self.state = state.copy()    # dictionary of (mostly) ints
+        self.timeouts = [] # array of ActionTimeouts
+        self.plan = [] # array of Actions
         goap_gid += 1
         self.state = {}
 
@@ -254,29 +250,27 @@ class Goap:
         self.state = self.meta["agentController"].inventory
 
     def execute(self):
-        actors = [Actor(self.state)]
-        for actor in actors:
-            # first we check out which items are currently banned
-            currentTime = time.time()
-            actor.timeouts = [timeout for timeout in actor.timeouts if not timeout.timeout<currentTime]
-            banned = set([timeout.action for timeout in actor.timeouts])
-            # check if we have to replan
-            if actor.plan == []:
-                actor.plan = plan(actor.state, banned)
-            # then perform the action if there is a goal
-            if actor.plan != []:
-                action = actor.plan[0]
-                result = action.function(self.meta)
-                if result == ActionReturn.retry:
-                    continue
-                elif result == ActionReturn.success:
-                    del(actor.plan[0])
-                elif result > 0:
-                    # invalidate current plan and add current action to timeout
-                    actor.plan = []
-                    actor.timeouts.append(ActionTimeout(action, time.time()+result))
-            else:
-                print 'idling...'
+		# first we check out which items are currently banned
+		currentTime = time.time()
+		self.timeouts = [timeout for timeout in self.timeouts if not timeout.timeout<currentTime]
+		banned = set([timeout.action for timeout in self.timeouts])
+		# check if we have to replan
+		if self.plan == []:
+			self.plan = plan(self.state, banned)
+		# then perform the action if there is a goal
+		if self.plan != []:
+			action = self.plan[0]
+			result = action.function(self.meta)
+			if result == ActionReturn.retry:
+				continue
+			elif result == ActionReturn.success:
+				del(self.plan[0])
+			elif result > 0:
+				# invalidate current plan and add current action to timeout
+				self.plan = []
+				self.timeouts.append(ActionTimeout(action, time.time()+result))
+		else:
+			print 'idling...'
 
 
 if __name__ == '__main__':
