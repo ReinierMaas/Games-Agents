@@ -40,7 +40,8 @@ class AgentController(object):
 		self.inventoryHandler.updateFromObservation(observation)
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
-		self.goap.updateState()
+		if self.goap is not None:
+			self.goap.updateState()
 
 
 	def destroyBlock(self, blockType, targetPosition = None):
