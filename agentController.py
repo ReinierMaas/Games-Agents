@@ -28,8 +28,7 @@ class AgentController(object):
 		self.controller = Controller(agentHost)
 		self.navigator = nav.Navigator(self.controller)
 		self.inventoryHandler = InventoryHotbar()
-		self.goapState = {}
-
+		self.goap = None
 
 
 	def updateObservation(self, observation):
@@ -41,22 +40,7 @@ class AgentController(object):
 		self.inventoryHandler.updateFromObservation(observation)
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
-		self.updateGoapState(observation)
-
-
-	def updateGoapState(self, observation):
-		def readInvEntry(observation, slot, item):
-			return observation.get(u"Inventory_{}_{}".format(slot, item))
-
-		self.inventory = {}
-
-		for i in range(0, 40):
-			item, count = (readInvEntry(observation, i, "item"), \
-				readInvEntry(observation, i, "size"))
-
-			if item is not None and count is not None:
-				self.inventory[item] = int(count)
-
+		self.goap.updateState()
 
 
 	def destroyBlock(self, blockType, targetPosition = None):
@@ -95,10 +79,9 @@ class AgentController(object):
 		# able to see and destroy the blocks
 		distanceToTarget = distanceH(self.playerPos, targetPosition)
 		movementSpeed = distanceToTarget / 3.5
-		relTargetPos = np.floor(targetPosition).astype(int) - self.intPlayerPos
-		x, y, z = relTargetPos
+		viewDistance = sqrt(3 * (CUBE_SIZE + 1)**2)
 
-		if not self.visionHandler.inVisionRange(x, y, z):
+		if getVectorDistance(self.intPlayerPos, targetPosition) > viewDistance:
 			# Target is outside our view distance, move towards it!
 			# TODO: Use proper navigation
 			# print "Target is outside view distance, moving towards it!"
@@ -131,10 +114,6 @@ class AgentController(object):
 		self.controller.lookAt(realBlockPos)
 
 		# Check line of sight to see if we have targeted the right block
-		if self.losDict is None:
-			self.controller.setPitch(45)	# Look at ground to get LOS
-			return True
-
 		losBlock = getLineOfSightBlock(self.losDict)
 		losBlockType = self.losDict[u"type"]
 		relBlockPos = losBlock - self.intPlayerPos
@@ -190,7 +169,7 @@ class AgentController(object):
 
 		# Check distance to targetPosition and navigate towards it
 		distanceToTarget = distanceH(self.playerPos, targetPosition)
-		movementSpeed = distanceToTarget / 2.0
+		movementSpeed = distanceToTarget / 3.5
 		closeEnough = 0.3
 
 		if distanceToTarget > closeEnough:
@@ -218,56 +197,6 @@ class AgentController(object):
 		door, so this is just a wrapper function for better code readability.
 		"""
 		return self.placeBlock(targetPosition, jumpOnUse)
-
-
-	def tileGrassAndPlantSeeds(self, targetPosition, hoeSlot, seedsSlot):
-		"""
-		You can call this function repeatedly (in a loop) to tile grass and
-		plant a seed on the targetPosition.
-		It will return True if the agent is in the process of tiling grass and
-		planting seeds, and it will return False if it has succeeded in doing
-		so, or if it has run out of seeds.
-
-		TODO: Improve return state
-		"""
-
-		# Check if we have enough seeds left
-		if not self.inventoryHandler.hasItemInHotbar(SEEDS):
-			return False
-
-		# Check distance to block (for vision range check)
-		relTargetPos = np.floor(targetPosition).astype(int) - self.intPlayerPos
-		x, y, z = relTargetPos
-
-		if not self.visionHandler.inVisionRange(x, y, z):
-			# Not in vision range, move/navigate towards it
-			# TODO: Use navigation
-			self.controller.lookAt(targetPosition)
-			self.controller.moveForward()
-			return True
-
-		# Check if the target position is grass, or farmland
-		visionBlockType = self.visionHandler.getBlockAtRelPos(x, y, z)
-
-		# Return True even if we have just placed the seeds, since theres a 1%
-		# chance that it fails to place the seeds...
-		if visionBlockType == BLOCK_FARM_LAND:
-			self.controller.selectHotbar(seedsSlot)
-			placedSeeds = self.useItem(targetPosition)
-
-			# Only if the block above the targetPosition is wheat, can we be
-			# sure that we have successfully planted seeds
-			return not self.visionHandler.isBlock(x, y + 1, z, BLOCK_WHEAT)
-		elif visionBlockType == BLOCK_GRASS:
-			self.controller.selectHotbar(hoeSlot)
-			self.placeBlock(targetPosition)
-			return True
-		else:
-			print "No farmland or grass at targetPosition {}! Rel = {}".format(
-				targetPosition, relTargetPos)
-			print "Expected grass or farmland, got \"{}\"...".format(
-				self.visionHandler.getBlockAtRelPos(x, y, z))
-			return False
 
 
 

@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
 	for agent in agents:
 		agent.agentController.navigator.setNavGraph(navGraph)
-		agent.goap = Goap(agent.agentController, AGENT_COUNT)
+		agent.agentController.goap = Goap(agent.agentController, AGENT_COUNT)
 
 
 	if PRE_EXPLORE:
@@ -163,8 +163,7 @@ if __name__ == "__main__":
 
 				agent.agentController.updateObservation(observation)
 				agent.agentController.navigator.update(autoMove = True)
-				agent.goap.updateState()
-				agent.goap.execute()
+				agent.agentController.goap.execute()
 
 
 			for error in worldState.errors:
