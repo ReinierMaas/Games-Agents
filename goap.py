@@ -94,7 +94,7 @@ def findTrees(w):
     ac = w["agentController"]
     nav = ac.navigator
     nav.findAndSet('log')
-    print 'finding trees! find find...'
+    print '<Agent{}> finding trees! find find...'.format(w["id"])
     return ActionReturn.success
 
 
@@ -104,7 +104,7 @@ def chopWood(w):
 
     if "chopWood" not in w:
         w["chopWood"] = False
-    print 'chopping wood! chop chop...'
+    print '<Agent{}> chopping wood! chop chop...'.format(w["id"])
 
     if not w["chopWood"]:
         w["chopWood"] = True
@@ -116,13 +116,15 @@ def chopWood(w):
         if nav.targetReached:
             w["foundTree"] = True
     else:
-        if ac.destroyBlock('log'):
+        if ac.destroyBlock('log', w["destination"].location):
             return ActionReturn.retry
         else:
             w["foundTree"] = False
             w["chopWood"] = False
             if w["destination"] is not None:
                 w["destination"].removeFlag(w["id"])
+                w["destination"].removeFlag("log")
+                ac.controller.setPitch(-10)
                 w["destination"] = None
                 return ActionReturn.success
             else:
@@ -135,35 +137,35 @@ def chopWood(w):
 
 def craftTable(w):
     w["agentController"].craft("crafting_table")
-    print 'crafting crafting table! table...'
+    print '<Agent{}> crafting crafting table! table...'.format(w["id"])
     return ActionReturn.success
 
 
 def craftPlank(w):
     w["agentController"].craft("planks")
-    print 'crafting planks! plank plank...'
+    print '<Agent{}> crafting planks! plank plank...'.format(w["id"])
     return ActionReturn.success
 
 
 def craftSticks(w):
     w["agentController"].craft("stick")
-    print 'crafting sticks! stick stick...'
+    print '<Agent{}> crafting sticks! stick stick...'.format(w["id"])
     return ActionReturn.success
 
 
 def craftHoe(w):
     w["agentController"].craft("wooden_hoe")
-    print 'crafting hoe! hoe hoe...'
+    print '<Agent{}> crafting hoe! hoe hoe...'.format(w["id"])
     return ActionReturn.success
 
 
 def harvestGrain(w):
-    print 'harvesting grain! oh no! there are is no grain, so I will plant some and check on them later'
+    print '<Agent{}> harvesting grain! oh no! there are is no grain, so I will plant some and check on them later'.format(w["id"])
     return ActionReturn.failure(5)
 
 
 def bakeBread(w):
-    print 'baking bread! bake bake...'
+    print '<Agent{}> baking bread! bake bake...'.format(w["id"])
     return ActionReturn.success
 
 
@@ -229,13 +231,6 @@ class ActionTimeout:
         self.action = action
         self.timeout = timeout
 
-class Actor:
-    def __init__(self, state):
-        self.state = state.copy()    # dictionary of (mostly) ints
-        self.timeouts = [] # array of ActionTimeouts
-        self.plan = [] # array of Actions
-
-
 goap_gid = 0
 
 class Goap:
@@ -245,6 +240,9 @@ class Goap:
         self.meta["agentController"] = agentController
         self.meta["id"] = goap_gid
         self.meta["filters"] = [i+1 if i >= goap_gid else i for i in range(agentCount - 1)]
+        self.state = {} # dictionary of ints
+        self.timeouts = [] # array of ActionTimeouts
+        self.plan = [] # array of Actions
         goap_gid += 1
         self.state = {}
 
@@ -252,29 +250,27 @@ class Goap:
         self.state = self.meta["agentController"].inventory
 
     def execute(self):
-        actors = [Actor(self.state)]
-        for actor in actors:
-            # first we check out which items are currently banned
-            currentTime = time.time()
-            actor.timeouts = [timeout for timeout in actor.timeouts if not timeout.timeout<currentTime]
-            banned = set([timeout.action for timeout in actor.timeouts])
-            # check if we have to replan
-            if actor.plan == []:
-                actor.plan = plan(actor.state, banned)
-            # then perform the action if there is a goal
-            if actor.plan != []:
-                action = actor.plan[0]
-                result = action.function(self.meta)
-                if result == ActionReturn.retry:
-                    continue
-                elif result == ActionReturn.success:
-                    del(actor.plan[0])
-                elif result > 0:
-                    # invalidate current plan and add current action to timeout
-                    actor.plan = []
-                    actor.timeouts.append(ActionTimeout(action, time.time()+result))
-            else:
-                print 'idling...'
+		# first we check out which items are currently banned
+		currentTime = time.time()
+		self.timeouts = [timeout for timeout in self.timeouts if not timeout.timeout<currentTime]
+		banned = set([timeout.action for timeout in self.timeouts])
+		# check if we have to replan
+		if self.plan == []:
+			self.plan = plan(self.state, banned)
+		# then perform the action if there is a goal
+		if self.plan != []:
+			action = self.plan[0]
+			result = action.function(self.meta)
+			if result == ActionReturn.retry:
+				return
+			elif result == ActionReturn.success:
+				del(self.plan[0])
+			elif result > 0:
+				# invalidate current plan and add current action to timeout
+				self.plan = []
+				self.timeouts.append(ActionTimeout(action, time.time()+result))
+		else:
+			print 'idling...'
 
 
 if __name__ == '__main__':
