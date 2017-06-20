@@ -94,7 +94,7 @@ def findTrees(w):
     ac = w["agentController"]
     nav = ac.navigator
     nav.findAndSet('log')
-    print 'finding trees! find find...'
+    print '<Agent{}> finding trees! find find...'.format(w["id"])
     return ActionReturn.success
 
 
@@ -104,7 +104,7 @@ def chopWood(w):
 
     if "chopWood" not in w:
         w["chopWood"] = False
-    print 'chopping wood! chop chop...'
+    print '<Agent{}> chopping wood! chop chop...'.format(w["id"])
 
     if not w["chopWood"]:
         w["chopWood"] = True
@@ -116,7 +116,7 @@ def chopWood(w):
         if nav.targetReached:
             w["foundTree"] = True
     else:
-        if ac.destroyBlock('log'):
+        if ac.destroyBlock('log', w["destination"].location):
             return ActionReturn.retry
         else:
             w["foundTree"] = False
@@ -137,35 +137,35 @@ def chopWood(w):
 
 def craftTable(w):
     w["agentController"].craft("crafting_table")
-    print 'crafting crafting table! table...'
+    print '<Agent{}> crafting crafting table! table...'.format(w["id"])
     return ActionReturn.success
 
 
 def craftPlank(w):
     w["agentController"].craft("planks")
-    print 'crafting planks! plank plank...'
+    print '<Agent{}> crafting planks! plank plank...'.format(w["id"])
     return ActionReturn.success
 
 
 def craftSticks(w):
     w["agentController"].craft("stick")
-    print 'crafting sticks! stick stick...'
+    print '<Agent{}> crafting sticks! stick stick...'.format(w["id"])
     return ActionReturn.success
 
 
 def craftHoe(w):
     w["agentController"].craft("wooden_hoe")
-    print 'crafting hoe! hoe hoe...'
+    print '<Agent{}> crafting hoe! hoe hoe...'.format(w["id"])
     return ActionReturn.success
 
 
 def harvestGrain(w):
-    print 'harvesting grain! oh no! there are is no grain, so I will plant some and check on them later'
+    print '<Agent{}> harvesting grain! oh no! there are is no grain, so I will plant some and check on them later'.format(w["id"])
     return ActionReturn.failure(5)
 
 
 def bakeBread(w):
-    print 'baking bread! bake bake...'
+    print '<Agent{}> baking bread! bake bake...'.format(w["id"])
     return ActionReturn.success
 
 
