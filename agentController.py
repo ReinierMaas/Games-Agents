@@ -199,6 +199,55 @@ class AgentController(object):
 		return self.placeBlock(targetPosition, jumpOnUse)
 
 
+	def tileGrassAndPlantSeeds(self, targetPosition, hoeSlot, seedsSlot):
+		"""
+		You can call this function repeatedly (in a loop) to tile grass and
+		plant a seed on the targetPosition.
+		It will return True if the agent is in the process of tiling grass and
+		planting seeds, and it will return False if it has succeeded in doing
+		so, or if it has run out of seeds.
+
+		TODO: Improve return state
+		"""
+
+		# Check if we have enough seeds left
+		if not self.inventoryHandler.hasItemInHotbar(SEEDS):
+			return False
+
+		# Check distance to block (for vision range check)
+		relTargetPos = np.floor(targetPosition).astype(int) - self.intPlayerPos
+		x, y, z = relTargetPos
+
+		if not self.visionHandler.inVisionRange(x, y, z):
+			# Not in vision range, move/navigate towards it
+			# TODO: Use navigation
+			self.controller.lookAt(targetPosition)
+			self.controller.moveForward()
+			return True
+
+		# Check if the target position is grass, or farmland
+		visionBlockType = self.visionHandler.getBlockAtRelPos(x, y, z)
+
+		# Return True even if we have just placed the seeds, since theres a 1%
+		# chance that it fails to place the seeds...
+		if visionBlockType == BLOCK_FARM_LAND:
+			self.controller.selectHotbar(seedsSlot)
+			placedSeeds = self.useItem(targetPosition)
+
+			# Only if the block above the targetPosition is wheat, can we be
+			# sure that we have successfully planted seeds
+			return not self.visionHandler.isBlock(x, y + 1, z, BLOCK_WHEAT)
+		elif visionBlockType == BLOCK_GRASS:
+			self.controller.selectHotbar(hoeSlot)
+			self.placeBlock(targetPosition)
+			return True
+		else:
+			print "No farmland or grass at targetPosition {}! Rel = {}".format(
+				targetPosition, relTargetPos)
+			print "Expected grass or farmland, got \"{}\"...".format(
+				self.visionHandler.getBlockAtRelPos(x, y, z))
+			return False
+
 
 	def craft(self, item):
 		self.agent.sendCommand("craft {}".format(item))
