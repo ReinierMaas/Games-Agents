@@ -80,7 +80,6 @@ def addDict(a, b):
 		ret[key] = a.get(key, 0) + b.get(key, 0)
 	return ret
 
-
 # python 2.7 enum
 class ActionReturn:
 	success, replanWithoutMe = range(2)
@@ -134,7 +133,6 @@ def chopWood(w):
 
 	return ActionReturn.success
 
-
 def craftTable(w):
 	w["agentController"].craft("crafting_table")
 	print '<Agent{}> crafting crafting table! table...'.format(w["id"])
@@ -168,9 +166,25 @@ def bakeBread(w):
 	print '<Agent{}> baking bread! bake bake...'.format(w["id"])
 	return ActionReturn.success
 
+goals = np.array([
+    Goal({'bread':1}),
+])
+
+actions = np.array([
+    Action("craftTable", craftTable, {'planks': 4}, {'tables': 1, 'planks': -4}),
+    Action("craftPlank", craftPlank, {'logs': 1}, {'planks': 4, 'logs': -1}),
+    Action("chopWood", chopWood, {}, {'logs': 1}),
+    Action("craftHoe", craftHoe, {'tables': 1, 'planks': 2, 'sticks': 2}, {'hoes': 1, 'planks': -2, 'sticks': -2}),
+    Action("craftSticks", craftSticks, {'planks': 2}, {'sticks': 4, 'planks': -1}),
+    Action("harvestGrain", harvestGrain, {'hoes':1}, {'grain': 1}),
+    Action("bakeBread", bakeBread, {'tables': 1, 'grain': 3}, {'bread':1, 'grain':-3}),
+])
 
 # dijkstra's algorithm using priority queues
-def pathfind(goals, actions, startstate, bannedset):
+def pathfind(startstate, bannedset):
+	global goals
+	global actions
+
 	root = Node(startstate, None, None)
 
 	leafs = []  # priority queue of leafs
@@ -181,7 +195,7 @@ def pathfind(goals, actions, startstate, bannedset):
 	while leafs:  # while not empty
 		if debug_node_expansions>=10000:
 			print 'reached max node expantions: %d' % debug_node_expansions
-			sys.exit()
+			break
 		debug_node_expansions += 1
 		(cost, leaf) = heapq.heappop(leafs)
 		for goal in goals:
@@ -199,21 +213,9 @@ def pathfind(goals, actions, startstate, bannedset):
 
 # simple wrapper around pathfind to make it easier to use
 def plan(startstate, bannedSet):
-	goals = np.array([
-		Goal({'bread':1}),
-	])
-	actions = np.array([
-		Action("craftTable", craftTable, {'planks': 4}, {'tables': 1, 'planks': -4}),
-		Action("craftPlank", craftPlank, {'logs': 1}, {'planks': 4, 'logs': -1}),
-		Action("chopWood", chopWood, {}, {'logs': 1}),
-		Action("craftHoe", craftHoe, {'tables': 1, 'planks': 2, 'sticks': 2}, {'hoes': 1, 'planks': -2, 'sticks': -2}),
-		Action("craftSticks", craftSticks, {'planks': 2}, {'sticks': 4, 'planks': -1}),
-		Action("harvestGrain", harvestGrain, {'hoes':1}, {'grain': 1}),
-		Action("bakeBread", bakeBread, {'tables': 1, 'grain': 3}, {'bread':1, 'grain':-3}),
-	])
 	print 'starting goap'
 	starttime = time.time()
-	leaf = pathfind(goals, actions, startstate, bannedSet)
+	leaf = pathfind(startstate, bannedSet)
 	endtime = time.time()
 	print 'done in %0.3f seconds' % (endtime - starttime)
 	node = leaf.node
@@ -244,7 +246,6 @@ class Goap:
 		self.timeouts = [] # array of ActionTimeouts
 		self.plan = [] # array of Actions
 		goap_gid += 1
-		self.state = {}
 
 	def updateState(self):
 		self.state = self.meta["agentController"].inventoryHandler.getCombinedDict()
