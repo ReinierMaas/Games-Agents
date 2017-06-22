@@ -3,7 +3,7 @@ import heapq
 import time
 import sys
 
-'''
+"""
 Okay, there are three levels of complexity we can choose
 simplest: use boolean state
 		  - library does this
@@ -20,7 +20,7 @@ complex:  use custom state with user-supplied functions and heuristic
 		  - requires rewriting library
 		  - requires custom functions for each action
 		  - requires complex A* heuristic
-'''
+"""
 
 
 class Goal:
@@ -92,8 +92,8 @@ class ActionReturn:
 def findTrees(w):
 	ac = w["agentController"]
 	nav = ac.navigator
-	nav.findAndSet('log')
-	print '<Agent{}> finding trees! find find...'.format(w["id"])
+	nav.findAndSet("log")
+	print "<Agent{}> finding trees! find find...".format(w["id"])
 	return ActionReturn.success
 
 
@@ -103,19 +103,19 @@ def chopWood(w):
 
 	if "chopWood" not in w:
 		w["chopWood"] = False
-	print '<Agent{}> chopping wood! chop chop...'.format(w["id"])
+	print "<Agent{}> chopping wood! chop chop...".format(w["id"])
 
 	if not w["chopWood"]:
 		w["chopWood"] = True
 		w["foundTree"] = False
-		destination = nav.findAndSet('log', w["id"], w["filters"])
+		destination = nav.findAndSet("log", w["id"], w["filters"])
 		w["destination"] = destination
 		return ActionReturn.retry
 	elif not w["foundTree"]:
 		if nav.targetReached:
 			w["foundTree"] = True
 	else:
-		if ac.destroyBlock('log', w["destination"].location):
+		if ac.destroyBlock("log", w["destination"].location):
 			return ActionReturn.retry
 		else:
 			w["foundTree"] = False
@@ -135,75 +135,78 @@ def chopWood(w):
 
 def craftTable(w):
 	w["agentController"].craft("crafting_table")
-	print '<Agent{}> crafting crafting table! table...'.format(w["id"])
+	print "<Agent{}> crafting crafting table! table...".format(w["id"])
 	return ActionReturn.success
 
 
 def craftPlank(w):
 	w["agentController"].craft("planks")
-	print '<Agent{}> crafting planks! plank plank...'.format(w["id"])
+	print "<Agent{}> crafting planks! plank plank...".format(w["id"])
 	return ActionReturn.success
 
 
 def craftSticks(w):
 	w["agentController"].craft("stick")
-	print '<Agent{}> crafting sticks! stick stick...'.format(w["id"])
+	print "<Agent{}> crafting sticks! stick stick...".format(w["id"])
 	return ActionReturn.success
 
 
 def craftHoe(w):
 	w["agentController"].craft("wooden_hoe")
-	print '<Agent{}> crafting hoe! hoe hoe...'.format(w["id"])
+	print "<Agent{}> crafting hoe! hoe hoe...".format(w["id"])
 	return ActionReturn.success
 
 
 def harvestGrain(w):
-	print '<Agent{}> harvesting grain! oh no! there are is no grain, so I will plant some and check on them later'.format(w["id"])
+	print "<Agent{}> harvesting grain! oh no! there are is no grain, so I will plant some and check on them later".format(w["id"])
 	return ActionReturn.failure(5)
 
 
 def bakeBread(w):
-	print '<Agent{}> baking bread! bake bake...'.format(w["id"])
+	print "<Agent{}> baking bread! bake bake...".format(w["id"])
 	return ActionReturn.success
 
-goals = np.array([
-    Goal({'bread':1}),
+
+
+# Default goals of an agent
+GOALS = np.array([
+	Goal({"bread":1}),
 ])
 
-actions = np.array([
-    Action("craftTable", craftTable, {'planks': 4}, {'tables': 1, 'planks': -4}),
-    Action("craftPlank", craftPlank, {'logs': 1}, {'planks': 4, 'logs': -1}),
-    Action("chopWood", chopWood, {}, {'logs': 1}),
-    Action("craftHoe", craftHoe, {'tables': 1, 'planks': 2, 'sticks': 2}, {'hoes': 1, 'planks': -2, 'sticks': -2}),
-    Action("craftSticks", craftSticks, {'planks': 2}, {'sticks': 4, 'planks': -1}),
-    Action("harvestGrain", harvestGrain, {'hoes':1}, {'grain': 1}),
-    Action("bakeBread", bakeBread, {'tables': 1, 'grain': 3}, {'bread':1, 'grain':-3}),
+# Default list of actions that an agent can do
+ACTIONS = np.array([
+	Action("craftTable", craftTable, {"planks": 4}, {"tables": 1, "planks": -4}),
+	Action("craftPlank", craftPlank, {"logs": 1}, {"planks": 4, "logs": -1}),
+	Action("chopWood", chopWood, {}, {"logs": 1}),
+	Action("craftHoe", craftHoe, {"tables": 1, "planks": 2, "sticks": 2}, {"hoes": 1, "planks": -2, "sticks": -2}),
+	Action("craftSticks", craftSticks, {"planks": 2}, {"sticks": 4, "planks": -1}),
+	Action("harvestGrain", harvestGrain, {"hoes":1}, {"grain": 1}),
+	Action("bakeBread", bakeBread, {"tables": 1, "grain": 3}, {"bread":1, "grain":-3}),
 ])
 
-# dijkstra's algorithm using priority queues
+
+
+# dijkstra"s algorithm using priority queues
 def pathfind(startstate, bannedset):
-	global goals
-	global actions
-
 	root = Node(startstate, None, None)
 
 	leafs = []  # priority queue of leafs
 	heapq.heappush(leafs, (0, Leaf(None, root, bannedset)))
 
-	debug_node_expansions = 0
+	debugNodeExpansions = 0
 
 	while leafs:  # while not empty
-		if debug_node_expansions>=10000:
-			print 'reached max node expantions: %d' % debug_node_expansions
+		if debugNodeExpansions>=10000:
+			print "reached max node expansions: %d" % debugNodeExpansions
 			break
-		debug_node_expansions += 1
+		debugNodeExpansions += 1
 		(cost, leaf) = heapq.heappop(leafs)
-		for goal in goals:
+		for goal in GOALS:
 			if (goal.met(leaf.node.state)):
-				print 'node expansions %d' % debug_node_expansions
+				print "node expansions %d" % debugNodeExpansions
 				print leaf
 				return leaf
-		for action in actions:
+		for action in ACTIONS:
 			if action.available(leaf.node.state) and (action == leaf.prevAction or action not in leaf.doneActions):
 				aset = leaf.doneActions.copy()
 				aset.add(action)
@@ -213,11 +216,11 @@ def pathfind(startstate, bannedset):
 
 # simple wrapper around pathfind to make it easier to use
 def plan(startstate, bannedSet):
-	print 'starting goap'
+	print "starting goap"
 	starttime = time.time()
 	leaf = pathfind(startstate, bannedSet)
 	endtime = time.time()
-	print 'done in %0.3f seconds' % (endtime - starttime)
+	print "done in %0.3f seconds" % (endtime - starttime)
 	node = leaf.node
 	path = []
 	while node != None:
@@ -233,19 +236,19 @@ class ActionTimeout:
 		self.action = action
 		self.timeout = timeout
 
-goap_gid = 0
+goapGid = 0
 
 class Goap:
 	def __init__(self, agentController, agentCount):
-		global goap_gid
+		global goapGid
 		self.meta = {}
 		self.meta["agentController"] = agentController
-		self.meta["id"] = goap_gid
-		self.meta["filters"] = [i+1 if i >= goap_gid else i for i in range(agentCount - 1)]
+		self.meta["id"] = goapGid
+		self.meta["filters"] = [i+1 if i >= goapGid else i for i in range(agentCount - 1)]
 		self.state = {} # dictionary of ints
 		self.timeouts = [] # array of ActionTimeouts
 		self.plan = [] # array of Actions
-		goap_gid += 1
+		goapGid += 1
 
 	def updateState(self):
 		self.state = self.meta["agentController"].inventoryHandler.getCombinedDict()
@@ -274,10 +277,10 @@ class Goap:
 				self.plan = []
 				self.timeouts.append(ActionTimeout(action, time.time()+result))
 		else:
-			print 'idling...'
+			print "idling..."
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 	goapInstance = Goap(None)
 	goapInstance.execute()
 
