@@ -80,9 +80,10 @@ class AgentController(object):
 		# able to see and destroy the blocks
 		distanceToTarget = distanceH(self.playerPos, targetPosition)
 		movementSpeed = distanceToTarget / 3.5
-		viewDistance = sqrt(3 * (CUBE_SIZE + 1)**2)
+		relTargetPos = np.floor(targetPosition).astype(int) - self.intPlayerPos
+		x, y, z = relTargetPos
 
-		if getVectorDistance(self.intPlayerPos, targetPosition) > viewDistance:
+		if not self.visionHandler.inVisionRange(x, y, z):
 			# Target is outside our view distance, move towards it!
 			# TODO: Use proper navigation
 			# print "Target is outside view distance, moving towards it!"
@@ -115,6 +116,10 @@ class AgentController(object):
 		self.controller.lookAt(realBlockPos)
 
 		# Check line of sight to see if we have targeted the right block
+		if self.losDict is None:
+			self.controller.setPitch(45)	# Look at ground to get LOS dict
+			return True
+
 		losBlock = getLineOfSightBlock(self.losDict)
 		losBlockType = self.losDict[u"type"]
 		relBlockPos = losBlock - self.intPlayerPos
@@ -170,7 +175,7 @@ class AgentController(object):
 
 		# Check distance to targetPosition and navigate towards it
 		distanceToTarget = distanceH(self.playerPos, targetPosition)
-		movementSpeed = distanceToTarget / 3.5
+		movementSpeed = distanceToTarget / 2.0
 		closeEnough = 0.3
 
 		if distanceToTarget > closeEnough:
