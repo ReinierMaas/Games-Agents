@@ -212,9 +212,14 @@ if __name__ == "__main__":
 		agent = AgentController(agentHost)
 		treeNr = 0
 		treePos = treePositions[treeNr]
+		treesLeft = [True] * len(treePositions)
 		woodLeft = True
 		dropsLeft = True
+
+		# Change prop value from "oak" to "non_oak" to get non-working shit
+		losProp = {LOS_PROP_NAME: u"variant", LOS_PROP_VALUE: u"oak"}
 		print "Using first treePos = {}".format(treePos)
+		print "Using losProp = {}".format(losProp)
 
 		# Mission loop:
 		while worldState.is_mission_running:
@@ -233,30 +238,36 @@ if __name__ == "__main__":
 				# print "Entity counts = {}".format(agent.entitiesHandler.getEntityCounts())
 
 				if u"LineOfSight" in observation:
-					if woodLeft:
-						woodLeft = agent.destroyBlock(BLOCK_WOOD, treePos)
+					# Check if there are trees left
+					if not np.array(treesLeft).any():
+						# Nope!
+						print "No trees left!"
 					else:
-						# Check if we have destroyed all the trees...
-						if treeNr >= len(treePositions) - 1:
-							# Check if we can collect some wood spoils, and pick them up...
-							if not dropsLeft:
-								print "Chopped tree down and collected all wood!"
-								agent.controller.setPitch(0)
-								agent.controller.stopMoving()
-								agentHost.sendCommand("quit")
-								time.sleep(1.5)
-							else:
-								dropsLeft = agent.collectDrops(BLOCK_WOOD)
+						if woodLeft:
+							woodLeft = agent.destroyBlock(BLOCK_WOOD, treePos, losProp)
 						else:
-							# Its likely that theres wood left, so try again
-							woodLeft = True
-							treeNr += 1
-							treePos = treePositions[treeNr]
-							print "Trying next tree nr {} at {}".format(
-								treeNr + 1, treePos)
+							# Check if we have destroyed all the trees...
+							if treeNr >= len(treePositions) - 1:
+								# Check if we can collect some wood spoils, and pick them up...
+								if not dropsLeft:
+									print "Chopped tree down and collected all wood!"
+									agent.controller.setPitch(0)
+									agent.controller.stopMoving()
+									agentHost.sendCommand("quit")
+									time.sleep(1.5)
+								else:
+									dropsLeft = agent.collectDrops(BLOCK_WOOD)
+							else:
+								# Its likely that theres wood left, so try again
+								woodLeft = True
+								treeNr += 1
+								treePos = treePositions[treeNr]
+								treesLeft[treeNr - 1] = False
+								print "Trying next tree nr {} at {}".format(
+									treeNr + 1, treePos)
 				else:
 					print "Looking down because we dont have LOS info..."
-					agent.controller.setPitch(45)	# Or something smarter perhaps
+					agent.controller.setPitch(80)	# Or something smarter perhaps
 
 			for error in worldState.errors:
 				print "Error:", error.text

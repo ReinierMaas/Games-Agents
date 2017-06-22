@@ -36,6 +36,7 @@ BLOCK_WHEAT = u"wheat"			# Seeds as a block, placed/planted on farmland
 BLOCK_GRASS = u"grass"
 BLOCK_FARM_LAND = u"farmland"
 
+WHEAT_PROP_AGE = "prop_age"
 WHEAT_FULLY_GROWN_AGE = 7		# If age property of wheat is 7, its fully grown
 
 
@@ -189,7 +190,7 @@ def wheatFullyGrown(losDict):
 	if losDict[u"type"] != BLOCK_WHEAT:
 		return False
 
-	return losDict.get(u"prop_age", -1) == WHEAT_FULLY_GROWN_AGE
+	return losDict.get(WHEAT_PROP_AGE, -1) == WHEAT_FULLY_GROWN_AGE
 
 
 def eprint(*args, **kwargs):

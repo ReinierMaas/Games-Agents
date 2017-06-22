@@ -18,6 +18,12 @@ import navigation as nav
 
 
 
+# Keys to use for the losProp dict, see destroyBlock() function
+LOS_PROP_NAME = "name"
+LOS_PROP_VALUE = "value"
+
+
+
 class AgentController(object):
 	""" Class used for controlling agent. """
 
@@ -30,6 +36,14 @@ class AgentController(object):
 		self.inventoryHandler = InventoryHotbar()
 		self.goap = None
 
+		# We keep track of the losProp and the list of "banned" blocks to allow
+		# destroyBlock() function to keep track of which blocks do not match
+		# the given, named property value in the losDict (e.g. fully grown wheat).
+		# The list is emptied when no more visible blocks of the given blockType
+		# are within range, or if losProp, targetPosition or blockType change,
+		# so we can try if the properties match again.
+		self.__resetBannedState()
+
 
 	def updateObservation(self, observation):
 		""" Updates handlers with observations. """
@@ -40,11 +54,29 @@ class AgentController(object):
 		self.inventoryHandler.updateFromObservation(observation)
 		self.playerPos = getPlayerPos(observation, False)
 		self.intPlayerPos = getPlayerPos(observation, True)
+
 		if self.goap is not None:
 			self.goap.updateState()
 
 
-	def destroyBlock(self, blockType, targetPosition = None):
+	def __resetBannedState(self, blockType = None, targetPosition = None, losProp = None):
+		""" Helper function that resets the state used for destroyBlock. """
+		self.__blockType = blockType
+		self.__targetPosition = targetPosition
+		self.__losProp = losProp
+		self.__bannedBlocks = []
+
+
+	def __blockIsBanned(self, blockPos):
+		""" Returns True/False if the given block is banned. """
+		for bannedBlock in self.__bannedBlocks:
+			if (bannedBlock == blockPos).all():
+				return True
+
+		return False
+
+
+	def destroyBlock(self, blockType, targetPosition = None, losProp = None):
 		"""
 		Destroys block(s) of the given blockType, at the given targetPosition.
 		If targetPosition is not given, then the agent will look around	for
@@ -60,7 +92,19 @@ class AgentController(object):
 		False if there are no more blocks to destroy of this type. This function
 		should be called in the main loop.
 
+		Optionally, the losProp parameter can be set to a dictionairy, with 2
+		keys (LOS_PROP_NAME and LOS_PROP_VALUE), indicating the exact properties
+		of the block that will be destroyed. Example of a losProp dict:
+			{
+				LOS_PROP_NAME: "prop_age",		# Name of the property in losDict
+				LOS_PROP_VALUE: 7,				# Value of the property in losDict
+			}
+
+		If the targeted block does not have this property, or if the values do
+		not match exactly, the block will be ignored.
+
 		TODO: Figure out a way how to determine if a block is destroyed?
+		(Possible solution: use inventor checks and/or entitiesHandler...)
 
 		"""
 
@@ -110,29 +154,86 @@ class AgentController(object):
 				# print "Either we got them all, or there was nothing to begin with..."
 				return False
 
-		# Look at the first block (they are sorted based on distance to player)
-		usableBlockPos = self.intPlayerPos + blockPositions[0]
-		realBlockPos = self.playerPos + blockPositions[0]
-		self.controller.lookAt(realBlockPos)
-
 		# Check line of sight to see if we have targeted the right block
 		if self.losDict is None:
 			self.controller.setPitch(45)	# Look at ground to get LOS dict
 			return True
 
+		# Get line of sight details
 		losBlock = getLineOfSightBlock(self.losDict)
 		losBlockType = self.losDict[u"type"]
 		relBlockPos = losBlock - self.intPlayerPos
 		x, y, z = relBlockPos
+
 		visionBlockIsCorrectType = self.visionHandler.isBlock(x, y, z, blockType)
+
+		# Check if the properties match, if any
+		if losProp is not None and losBlockType == blockType:
+			# Skip this block if the properties don't match
+			propName = losProp[LOS_PROP_NAME]
+
+			if propName not in self.losDict or losProp[LOS_PROP_VALUE] != self.losDict[propName]:
+				# If this is the first time we ban this blockType at the given
+				# targetPosition with the given losProp, update state
+				# print "self: losProp = {}, blockType = {}, targetPosition = {}".format(
+				# 	self.__losProp, self.__blockType, self.__targetPosition)
+				# print "args: losProp = {}, blockType = {}, targetPosition = {}".format(
+				# 	losProp, blockType, targetPosition)
+				if self.__losProp != losProp or self.__blockType != blockType or \
+				(self.__targetPosition != targetPosition).any():
+
+					print "Resetting losProp state stuff! (1)"
+					self.__resetBannedState(blockType, targetPosition, losProp)
+
+				# Add it to banned blocks list if its not already in there
+				if not self.__blockIsBanned(losBlock):
+					print "banning block at {} with type = {}".format(losBlock,
+						losBlockType)
+					self.__bannedBlocks.append(losBlock)
+
+				print "banned blocks = {}".format(self.__bannedBlocks)
+
+				# Check if we have any valid, visible blocks left at all...
+				validBlocks = [False] * len(blockPositions)
+
+				for i in range(len(blockPositions)):
+					blockPos = self.intPlayerPos + blockPositions[i]
+					validBlocks[i] = not self.__blockIsBanned(blockPos)
+
+					if validBlocks[i]:
+						break
+
+				if np.array(validBlocks).any():
+					return True
+				else:
+					print "No valid blocks left!"
+					return False
+
+		# Look at the first non-banned block (they are sorted based on distance to player)
+		relBlock = None
+
+		for block in blockPositions:
+			if not self.__blockIsBanned(self.intPlayerPos + block):
+				relBlock = block
+				break
+
+		# Check if we have actually found a valid block, and if not, delete
+		# banned blocks state and return False
+		if relBlock is None:
+			self.__resetBannedState()
+			print "Resetting losProp state stuff! (2)"
+			return False
+
+		usableBlockPos = self.intPlayerPos + relBlock
+		realBlockPos = self.playerPos + relBlock
+		self.controller.lookAt(realBlockPos)
 
 		# If we are close enough to the target block, start punching it
 		inRange = self.losDict[u"inRange"]
 
-		if inRange and ((losBlock == usableBlockPos).all() or \
-		visionBlockIsCorrectType or losBlockType == blockType):
+		if inRange and ((losBlock == usableBlockPos).all() or visionBlockIsCorrectType \
+		or losBlockType == blockType) and not self.__blockIsBanned(realBlockPos):
 
-			# print "Destroying block!!!"
 			self.controller.stopMoving()
 			self.controller.lookAt(realBlockPos)
 			self.controller.setAttackMode(True)

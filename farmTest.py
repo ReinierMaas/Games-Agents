@@ -20,7 +20,7 @@ from agentController import *
 HOE_HOTBAR_SLOT = 0
 SEEDS_HOTBAR_SLOT = 1
 
-HOE_TO_FUCK = HOES[-1]			# We use the most expensive bitch hoe available
+HOE_TO_FUCK = HOES[0]			# Use wooden hoe
 NUM_SEEDS = 16
 
 PLAYER_NAME = "MalmoSucksBalls"
@@ -181,6 +181,7 @@ if __name__ == "__main__":
 		targetPosition = None
 		i = 0
 		plantedSeeds = False
+		plantedEverything = False
 
 		# Plant grass in a 4x4 area
 		relGrassPositions = [
@@ -205,6 +206,11 @@ if __name__ == "__main__":
 		agentHost.sendCommand("chat Cheating myself some bonemeal for testing...")
 		agentHost.sendCommand("chat /give {} bone 10".format(PLAYER_NAME))
 
+		# To keep track of whether there is wheat left to be farmed
+		wheatLeft = True
+		j = 0
+		losProp = {LOS_PROP_NAME: WHEAT_PROP_AGE, LOS_PROP_VALUE: WHEAT_FULLY_GROWN_AGE}
+
 		# Mission loop:
 		while worldState.is_mission_running:
 			if worldState.number_of_observations_since_last_state > 0:
@@ -220,32 +226,44 @@ if __name__ == "__main__":
 
 				agent.updateObservation(observation)
 
+				# Add original player pos to relGrassPositions, ONCE
 				if grassPositions == []:
-					# Add original player pos to relGrassPositions
 					[grassPositions.append(agent.playerPos + relPos) for relPos in relGrassPositions]
 
-				# Check if we have enough seeds left
-				if not agent.inventoryHandler.hasItemInHotbar(SEEDS):
-					print "\n\nWe've run out of seeds... Time to give up on life... Goodbye fuckers\n\n"
-					print "The wheat we're currently looking at is fully grown: {}".format(
-						wheatFullyGrown(observation.get(u"LineOfSight")))
+				# Check if we have planted everything
+				# if not agent.inventoryHandler.hasItemInHotbar(SEEDS):
+				if plantedEverything:
+					print "Planted all the seeds we got, now we wait to harvest wheat..."
+					# print "The wheat we're currently looking at is fully grown: {}".format(
+					# 	wheatFullyGrown(losDict))
 
-					agentHost.sendCommand("quit")
-					time.sleep(1.5)
+					# Harvest it when its fully ripe, use losProp
+					wheatLeft = agent.destroyBlock(BLOCK_WHEAT, grassPositions[j],
+						losProp)
 
-				# Get new targetPosition if we have planted seeds
-				if not plantedSeeds:
-					if i < len(relGrassPositions):
-						targetPosition = grassPositions[i]
-						i += 1
-					else:
-						print "Got all target positions!"
+					print "wheatLeft = {}".format(wheatLeft)
 
-				plantedSeeds = agent.tileGrassAndPlantSeeds(targetPosition,
-					HOE_HOTBAR_SLOT, SEEDS_HOTBAR_SLOT)
+					if not wheatLeft:
+						# Try the next position j
+						j += 1
 
-				# Check age of wheat
-				losDict = observation.get(u"LineOfSight")
+						if j >= len(grassPositions):
+							j = 0
+							print "Died waiting of boredom for what to grow... bye"
+							agentHost.sendCommand("quit")
+							time.sleep(1.5)
+				else:
+					# Get new targetPosition if we have planted seeds
+					if not plantedSeeds:
+						if i < len(relGrassPositions):
+							targetPosition = grassPositions[i]
+							i += 1
+						else:
+							print "Got all target positions!"
+							plantedEverything = True
+
+					plantedSeeds = agent.tileGrassAndPlantSeeds(targetPosition,
+						HOE_HOTBAR_SLOT, SEEDS_HOTBAR_SLOT)
 
 			for error in worldState.errors:
 				print "Error:", error.text

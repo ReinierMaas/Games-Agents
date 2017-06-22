@@ -10,7 +10,7 @@ from util import *
 ################################################################################
 
 CUBE_OBS = "vision_cube"		# Name that will be used in XML/JSON
-CUBE_SIZE = 3 					# Number of visible blocks in 1 direction
+CUBE_SIZE = 6 					# Number of visible blocks in 1 direction
 
 ENTITIES_OBS = "entities"		# Name that will be used in XML/JSON
 ENTITIES_RANGE = 25				# Number of blocks in 1 direction that we can
