@@ -69,6 +69,7 @@ def getMissionXML(numTrees=2):
 					<ChatCommands />
 					<InventoryCommands />
 					<MissionQuitCommands />
+					<SimpleCraftCommands />
 
 					<ObservationFromFullStats />
 					<ObservationFromNearbyEntities>

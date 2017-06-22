@@ -103,6 +103,7 @@ def getMissionXML(numTrees=2):
 					<ContinuousMovementCommands />
 					<InventoryCommands />
 					<MissionQuitCommands />
+					<SimpleCraftCommands />
 
 					<ObservationFromFullStats />
 					<ObservationFromNearbyEntities>
