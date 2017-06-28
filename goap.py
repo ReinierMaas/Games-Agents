@@ -168,26 +168,8 @@ def bakeBread(w):
 
 
 
-# Default goals of an agent
-GOALS = np.array([
-	Goal({"bread":1}),
-])
-
-# Default list of actions that an agent can do
-ACTIONS = np.array([
-	Action("craftTable", craftTable, {"planks": 4}, {"tables": 1, "planks": -4}),
-	Action("craftPlank", craftPlank, {"logs": 1}, {"planks": 4, "logs": -1}),
-	Action("chopWood", chopWood, {}, {"logs": 1}),
-	Action("craftHoe", craftHoe, {"tables": 1, "planks": 2, "sticks": 2}, {"hoes": 1, "planks": -2, "sticks": -2}),
-	Action("craftSticks", craftSticks, {"planks": 2}, {"sticks": 4, "planks": -1}),
-	Action("harvestGrain", harvestGrain, {"hoes":1}, {"grain": 1}),
-	Action("bakeBread", bakeBread, {"tables": 1, "grain": 3}, {"bread":1, "grain":-3}),
-])
-
-
-
 # dijkstra"s algorithm using priority queues
-def pathfind(startstate, bannedset):
+def pathfind(goals, actions, startstate, bannedset):
 	root = Node(startstate, None, None)
 
 	leafs = []  # priority queue of leafs
@@ -201,12 +183,12 @@ def pathfind(startstate, bannedset):
 			break
 		debugNodeExpansions += 1
 		(cost, leaf) = heapq.heappop(leafs)
-		for goal in GOALS:
+		for goal in goals:
 			if (goal.met(leaf.node.state)):
 				print "node expansions %d" % debugNodeExpansions
 				print leaf
 				return leaf
-		for action in ACTIONS:
+		for action in actions:
 			if action.available(leaf.node.state) and (action == leaf.prevAction or action not in leaf.doneActions):
 				aset = leaf.doneActions.copy()
 				aset.add(action)
@@ -216,9 +198,25 @@ def pathfind(startstate, bannedset):
 
 # simple wrapper around pathfind to make it easier to use
 def plan(startstate, bannedSet):
+	# Default goals of an agent
+	goals = np.array([
+		Goal({"bread":1}),
+	])
+
+	# Default list of actions that an agent can do
+	actions = np.array([
+		Action("craftTable", craftTable, {"planks": 4}, {"tables": 1, "planks": -4}),
+		Action("craftPlank", craftPlank, {"logs": 1}, {"planks": 4, "logs": -1}),
+		Action("chopWood", chopWood, {}, {"logs": 1}),
+		Action("craftHoe", craftHoe, {"tables": 1, "planks": 2, "sticks": 2}, {"hoes": 1, "planks": -2, "sticks": -2}),
+		Action("craftSticks", craftSticks, {"planks": 2}, {"sticks": 4, "planks": -1}),
+		Action("harvestGrain", harvestGrain, {"hoes":1}, {"grain": 1}),
+		Action("bakeBread", bakeBread, {"tables": 1, "grain": 3}, {"bread":1, "grain":-3}),
+	])
+
 	print "starting goap"
 	starttime = time.time()
-	leaf = pathfind(startstate, bannedSet)
+	leaf = pathfind(goals, actions, startstate, bannedSet)
 	endtime = time.time()
 	print "done in %0.3f seconds" % (endtime - starttime)
 	node = leaf.node
@@ -236,19 +234,15 @@ class ActionTimeout:
 		self.action = action
 		self.timeout = timeout
 
-goapGid = 0
-
 class Goap:
-	def __init__(self, agentController, agentCount):
-		global goapGid
+	def __init__(self, agentController, agentId, agentCount):
 		self.meta = {}
 		self.meta["agentController"] = agentController
-		self.meta["id"] = goapGid
-		self.meta["filters"] = [i+1 if i >= goapGid else i for i in range(agentCount - 1)]
+		self.meta["id"] = agentId
+		self.meta["filters"] = [i + 1 if i >= agentId else i for i in range(agentCount - 1)]
 		self.state = {} # dictionary of ints
 		self.timeouts = [] # array of ActionTimeouts
 		self.plan = [] # array of Actions
-		goapGid += 1
 
 	def updateState(self):
 		self.state = self.meta["agentController"].inventoryHandler.getCombinedDict()

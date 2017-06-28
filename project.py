@@ -105,7 +105,7 @@ if __name__ == "__main__":
 	# set up a client pool
 	client_pool = MalmoPython.ClientPool()
 	for x in xrange(10000, 10000 + AGENT_COUNT):
-		client_pool.add(MalmoPython.ClientInfo('127.0.0.1', x))
+		client_pool.add(MalmoPython.ClientInfo("127.0.0.1", x))
 
 	#setup and start missions
 	agents = setupAgents(AGENT_COUNT, myMission)
@@ -131,10 +131,12 @@ if __name__ == "__main__":
 	print "CUBE_SIZE{}".format(CUBE_SIZE)
 	# Setup vision handler, controller, etc
 	navGraph = Graph(300, 300, 1)
+	agentId = 0
 
 	for agent in agents:
 		agent.agentController.navigator.setNavGraph(navGraph)
-		agent.agentController.goap = Goap(agent.agentController, AGENT_COUNT)
+		agent.agentController.goap = Goap(agent.agentController, agentId, AGENT_COUNT)
+		agentId += 1
 
 
 	if PRE_EXPLORE:
