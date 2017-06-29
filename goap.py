@@ -158,13 +158,21 @@ def craftHoe(w):
 
 
 def harvestGrain(w):
+	# TODO: Use waypoint system to see if theres fully grown wheat available...
+	# If not, return failure, otherwise harvest it
 	print "<Agent{}> harvesting grain! oh no! there are is no grain, so I will plant some and check on them later".format(w["id"])
 	return ActionReturn.failure(5)
 
 
 def bakeBread(w):
 	print "<Agent{}> baking bread! bake bake...".format(w["id"])
-	return ActionReturn.success
+
+	# Check if we have sufficient wheat to craft bread...
+	if w["agentController"].inventoryHandler.getItemAmount("wheat") >= 3:
+		w["agentController"].craft("bread")
+		return ActionReturn.success
+	else:
+		return ActionReturn.false
 
 
 

@@ -40,11 +40,12 @@ def getAgentHost():
 
 	return agentHost
 
-INTERESTING_BLOCKS = ["log"]
+INTERESTING_BLOCKS = ["log", "grass"]
 def getInterestingBlocks(visionHandler):
 	blocks = []
+
 	for tag in INTERESTING_BLOCKS:
-		blocks.extend([(x,tag) for x in visionHandler.findBlocks(tag)])
+		blocks.extend([(x, tag) for x in visionHandler.findBlocks(tag)])
 
 	return blocks
 

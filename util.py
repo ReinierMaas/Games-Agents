@@ -39,6 +39,8 @@ BLOCK_FARM_LAND = u"farmland"
 WHEAT_PROP_AGE = "prop_age"
 WHEAT_FULLY_GROWN_AGE = 7		# If age property of wheat is 7, its fully grown
 
+MAX_WHEAT_TIME = 20 * 60 * 1000		# Wheat takes at most 20 minutes to fully grow
+
 
 
 ################################################################################
