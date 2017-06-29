@@ -98,8 +98,17 @@ def findTrees(w):
 
 
 def chopWood(w):
+	if w is None:
+		print "goap.py:chopWood(w): w is None"
+		return ActionReturn.failure
 	ac = w["agentController"]
+	if ac is None:
+		print "goap.py:chopWood(w): ac is None"
+		return ActionReturn.failure
 	nav = ac.navigator
+	if nav is None:
+		print "goap.py:chopWood(w): nav is None"
+		return ActionReturn.failure
 
 	if "chopWood" not in w:
 		w["chopWood"] = False
@@ -109,12 +118,18 @@ def chopWood(w):
 		w["chopWood"] = True
 		w["foundTree"] = False
 		destination = nav.findAndSet("log", w["id"], w["filters"])
+		if destination is None:
+			print "goap.py:chopWood(w):nav.findAndSet(...) destination is None"
+			return ActionReturn.failure
 		w["destination"] = destination
 		return ActionReturn.retry
 	elif not w["foundTree"]:
 		if nav.targetReached:
 			w["foundTree"] = True
 	else:
+		if w["destination"] is None:
+			print "goap.py:chopWood(w):w[\"destination\"] is None"
+			return ActionReturn.failure
 		if ac.destroyBlock("log", w["destination"].location):
 			return ActionReturn.retry
 		else:
@@ -213,13 +228,13 @@ def plan(startstate, bannedSet):
 
 	# Default list of actions that an agent can do
 	actions = np.array([
-		Action("craftTable", craftTable, {"planks": 4}, {"tables": 1, "planks": -4}),
+		Action("craftTable", craftTable, {"planks": 4}, {"crafting_table": 1, "planks": -4}),
 		Action("craftPlank", craftPlank, {"logs": 1}, {"planks": 4, "logs": -1}),
 		Action("chopWood", chopWood, {}, {"logs": 1}),
-		Action("craftHoe", craftHoe, {"tables": 1, "planks": 2, "sticks": 2}, {"hoes": 1, "planks": -2, "sticks": -2}),
+		Action("craftHoe", craftHoe, {"crafting_table": 1, "planks": 2, "sticks": 2}, {"wooden_hoe": 1, "planks": -2, "sticks": -2}),
 		Action("craftSticks", craftSticks, {"planks": 2}, {"sticks": 4, "planks": -1}),
-		Action("harvestGrain", harvestGrain, {"hoes":1}, {"grain": 1}),
-		Action("bakeBread", bakeBread, {"tables": 1, "grain": 3}, {"bread":1, "grain":-3}),
+		Action("harvestGrain", harvestGrain, {"wooden_hoe":1}, {"grain": 1}),
+		Action("bakeBread", bakeBread, {"crafting_table": 1, "grain": 3}, {"bread":1, "grain":-3}),
 	])
 
 	print "starting goap"
