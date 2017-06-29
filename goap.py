@@ -223,9 +223,9 @@ def plan(startstate, bannedSet):
 		Action("craftTable", craftTable, {"planks": 4}, {"crafting_table": 1, "planks": -4}),
 		Action("craftPlank", craftPlank, {"logs": 1}, {"planks": 4, "logs": -1}),
 		Action("chopWood", chopWood, {}, {"logs": 1}),
-		Action("craftHoe", craftHoe, {"crafting_table": 1, "planks": 2, "sticks": 2}, {"hoes": 1, "planks": -2, "sticks": -2}),
+		Action("craftHoe", craftHoe, {"crafting_table": 1, "planks": 2, "sticks": 2}, {"wooden_hoe": 1, "planks": -2, "sticks": -2}),
 		Action("craftSticks", craftSticks, {"planks": 2}, {"sticks": 4, "planks": -1}),
-		Action("harvestGrain", harvestGrain, {"hoes":1}, {"grain": 1}),
+		Action("harvestGrain", harvestGrain, {"wooden_hoe":1}, {"grain": 1}),
 		Action("bakeBread", bakeBread, {"crafting_table": 1, "grain": 3}, {"bread":1, "grain":-3}),
 	])
 
