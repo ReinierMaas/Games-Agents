@@ -124,7 +124,7 @@ def getAgentSections(count, cubeObs, cubeSize, name, gameMode, startX, startY, s
 					<AbsoluteMovementCommands/>
 					<ContinuousMovementCommands />
 					<InventoryCommands />
-					<SimpleCraftCommand />
+					<SimpleCraftCommands />
 
 					<ObservationFromFullStats />
 					<ObservationFromRay />
