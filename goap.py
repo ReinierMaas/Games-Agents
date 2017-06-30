@@ -133,6 +133,7 @@ def chopWood(w):
 	if not w[CHOP_WOOD]:
 		w[CHOP_WOOD] = True
 		w[FOUND_TREE] = False
+		print "filters = {}".format(w["filters"])
 		destination = nav.findAndSet(BLOCK_WOOD, w["id"], w["filters"])
 
 		if destination is None:
@@ -198,6 +199,7 @@ def getSeeds(w):
 	if not w[GET_SEEDS]:
 		w[GET_SEEDS] = True
 		w[FOUND_GRASS] = False
+		print "filters = {}".format(w["filters"])
 		destination = nav.findAndSet(BLOCK_TALL_GRASS, w["id"], w["filters"])
 
 		if destination is None:
