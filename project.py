@@ -19,7 +19,7 @@ from goap import *
 #this setting enables pre-exploration, which means all tree and lake locations
 #are known to the agents at the start.
 PRE_EXPLORE = True
-AGENT_COUNT = 2
+AGENT_COUNT = 1
 
 def getAgentHost():
 	""" Creates agent host connection and parses commandline arguments. """
@@ -153,7 +153,6 @@ if __name__ == "__main__":
 			worldStates[i] = agent.agentHost.getWorldState()
 			if not worldStates[i].is_mission_running:
 				quit = True
-
 
 		if quit:
 			break

@@ -36,14 +36,6 @@ class AgentController(object):
 		self.inventoryHandler = InventoryHotbar()
 		self.goap = None
 
-		# We keep track of the losProp and the list of "banned" blocks to allow
-		# destroyBlock() function to keep track of which blocks do not match
-		# the given, named property value in the losDict (e.g. fully grown wheat).
-		# The list is emptied when no more visible blocks of the given blockType
-		# are within range, or if losProp, targetPosition or blockType change,
-		# so we can try if the properties match again.
-		self.__resetBannedState()
-
 
 	def updateObservation(self, observation):
 		""" Updates handlers with observations. """
@@ -58,22 +50,6 @@ class AgentController(object):
 		if self.goap is not None:
 			self.goap.updateState()
 
-
-	def __resetBannedState(self, blockType = None, targetPosition = None, losProp = None):
-		""" Helper function that resets the state used for destroyBlock. """
-		self.__blockType = blockType
-		self.__targetPosition = targetPosition
-		self.__losProp = losProp
-		self.__bannedBlocks = []
-
-
-	def __blockIsBanned(self, blockPos):
-		""" Returns True/False if the given block is banned. """
-		for bannedBlock in self.__bannedBlocks:
-			if (bannedBlock == blockPos).all():
-				return True
-
-		return False
 
 
 	def destroyBlock(self, blockType, targetPosition = None, losProp = None):
@@ -131,6 +107,7 @@ class AgentController(object):
 			# Target is outside our view distance, move towards it!
 			# TODO: Use proper navigation
 			# print "Target is outside view distance, moving towards it!"
+			self.controller.setAttackMode(False)
 			self.controller.lookAt(targetPosition)
 			self.controller.moveForward()
 			return True
@@ -157,6 +134,7 @@ class AgentController(object):
 		# Check line of sight to see if we have targeted the right block
 		if self.losDict is None:
 			self.controller.setPitch(45)	# Look at ground to get LOS dict
+			self.controller.setAttackMode(False)
 			return True
 
 		# Get line of sight details
@@ -164,7 +142,6 @@ class AgentController(object):
 		losBlockType = self.losDict[u"type"]
 		relBlockPos = losBlock - self.intPlayerPos
 		x, y, z = relBlockPos
-
 		visionBlockIsCorrectType = self.visionHandler.isBlock(x, y, z, blockType)
 
 		# Check if the properties match, if any
@@ -173,57 +150,11 @@ class AgentController(object):
 			propName = losProp[LOS_PROP_NAME]
 
 			if propName not in self.losDict or losProp[LOS_PROP_VALUE] != self.losDict[propName]:
-				# If this is the first time we ban this blockType at the given
-				# targetPosition with the given losProp, update state
-				# print "self: losProp = {}, blockType = {}, targetPosition = {}".format(
-				# 	self.__losProp, self.__blockType, self.__targetPosition)
-				# print "args: losProp = {}, blockType = {}, targetPosition = {}".format(
-				# 	losProp, blockType, targetPosition)
-				if self.__losProp != losProp or self.__blockType != blockType or \
-				(self.__targetPosition != targetPosition).any():
-
-					print "Resetting losProp state stuff! (1)"
-					self.__resetBannedState(blockType, targetPosition, losProp)
-
-				# Add it to banned blocks list if its not already in there
-				if not self.__blockIsBanned(losBlock):
-					print "banning block at {} with type = {}".format(losBlock,
-						losBlockType)
-					self.__bannedBlocks.append(losBlock)
-
-				print "banned blocks = {}".format(self.__bannedBlocks)
-
-				# Check if we have any valid, visible blocks left at all...
-				validBlocks = [False] * len(blockPositions)
-
-				for i in range(len(blockPositions)):
-					blockPos = self.intPlayerPos + blockPositions[i]
-					validBlocks[i] = not self.__blockIsBanned(blockPos)
-
-					if validBlocks[i]:
-						break
-
-				if np.array(validBlocks).any():
-					return True
-				else:
-					print "No valid blocks left!"
-					return False
+				self.controller.setAttackMode(False)
+				return False
 
 		# Look at the first non-banned block (they are sorted based on distance to player)
-		relBlock = None
-
-		for block in blockPositions:
-			if not self.__blockIsBanned(self.intPlayerPos + block):
-				relBlock = block
-				break
-
-		# Check if we have actually found a valid block, and if not, delete
-		# banned blocks state and return False
-		if relBlock is None:
-			self.__resetBannedState()
-			print "Resetting losProp state stuff! (2)"
-			return False
-
+		relBlock = blockPositions[0]
 		usableBlockPos = self.intPlayerPos + relBlock
 		realBlockPos = self.playerPos + relBlock
 		self.controller.lookAt(realBlockPos)
@@ -231,8 +162,8 @@ class AgentController(object):
 		# If we are close enough to the target block, start punching it
 		inRange = self.losDict[u"inRange"]
 
-		if inRange and ((losBlock == usableBlockPos).all() or visionBlockIsCorrectType \
-		or losBlockType == blockType) and not self.__blockIsBanned(realBlockPos):
+		if inRange and ((losBlock == usableBlockPos).all() or \
+		visionBlockIsCorrectType or losBlockType == blockType):
 
 			self.controller.stopMoving()
 			self.controller.lookAt(realBlockPos)
@@ -337,7 +268,7 @@ class AgentController(object):
 
 		# Return True even if we have just placed the seeds, since theres a 1%
 		# chance that it fails to place the seeds...
-		if visionBlockType == BLOCK_FARM_LAND:
+		if visionBlockType == BLOCK_FARM_LAND or visionBlockType == "dirt":
 			self.controller.selectHotbar(seedsSlot)
 			placedSeeds = self.useItem(targetPosition)
 
@@ -355,6 +286,61 @@ class AgentController(object):
 				self.visionHandler.getBlockAtRelPos(x, y, z))
 			return False
 
+
+	def harvestCrop(self, targetPosition, cropType):
+		"""
+		You can call this function repeatedly (in a loop) to harvest a crop on
+		the targetPosition. It will return True if the agent is in the process
+		of harvesting the crop, and it will return False if it has succeeded in
+		doing so, or if it has encountered problems and it cannot harvest.
+
+		TODO: Improve return state
+		"""
+
+		# Check distance to block (for vision range check)
+		relTargetPos = np.floor(targetPosition).astype(int) - self.intPlayerPos
+		x, y, z = relTargetPos
+
+		if not self.visionHandler.inVisionRange(x, y, z):
+			# Not in vision range, move/navigate towards it
+			# TODO: Use navigation
+			self.controller.lookAt(targetPosition)
+			self.controller.moveForward()
+			return True
+
+		# Check distance to targetPosition and navigate towards it
+		distanceToTarget = distanceH(self.playerPos, targetPosition)
+		movementSpeed = distanceToTarget / 2.0
+		closeEnough = 0.3
+
+		if distanceToTarget > closeEnough:
+			# Target is not below our feet, move towards it!
+			# TODO: Use proper navigation
+			# print "Target is not below our feet, moving towards it!"
+			self.controller.lookAt(targetPosition)
+			self.controller.moveForward(movementSpeed)
+			return True
+
+		# Look down at targetPosition
+		self.controller.stopMoving()
+		self.controller.lookAt(targetPosition)
+
+		# Check if the target position is of the given cropType
+		visionBlockType = self.visionHandler.getBlockAtRelPos(x, y, z)
+
+		# Return True even if we have just placed the seeds, since theres a 1%
+		# chance that it fails to place the seeds...
+		if visionBlockType == cropType:
+			# Get LOS details...
+			losProp = {LOS_PROP_NAME: CROP_PROP_AGE, LOS_PROP_VALUE: CROP_FULLY_GROWN_AGE}
+
+			if not self.destroyBlock(cropType, targetPosition, losProp):
+				self.controller.setAttackMode(False)
+				return False
+			else:
+				return True
+
+		return False
 
 	def craft(self, item):
 		self.agent.sendCommand("craft {}".format(item))

@@ -71,6 +71,14 @@ class WaypointNode(object):
 
 		return flags
 
+	def hasFlag(self, flag):
+		""" Returns True if the node contains the flag, otherwise False """
+		for flag in self.graph.flaggedNodes:
+			if self in self.graph.flaggedNodes[flag]:
+				return True
+
+		return False
+
 
 	def __repr__(self):
 		idx, idz = self.graph.nodeIdAtLocation(self.location)

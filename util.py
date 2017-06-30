@@ -3,6 +3,7 @@ from __future__ import print_function
 from math import *
 
 import sys
+import time
 import numpy as np
 
 
@@ -34,12 +35,16 @@ HOES = [u"wooden_hoe", u"stone_hoe", u"iron_hoe", u"gold_hoe", u"diamond_hoe"]
 SEEDS = u"wheat_seeds"			# The seeds item you use to plant seeds
 BLOCK_WHEAT = u"wheat"			# Seeds as a block, placed/planted on farmland
 BLOCK_GRASS = u"grass"
+BLOCK_TALL_GRASS = u"tall_grass"	# The type of block you can get seeds from
 BLOCK_FARM_LAND = u"farmland"
 
-WHEAT_PROP_AGE = "prop_age"
-WHEAT_FULLY_GROWN_AGE = 7		# If age property of wheat is 7, its fully grown
+CROP_PROP_AGE = "prop_age"
+CROP_FULLY_GROWN_AGE = 7		# If age property of wheat is 7, its fully grown
 
-MAX_WHEAT_TIME = 20 * 60 * 1000		# Wheat takes at most 20 minutes to fully grow
+# For our scenario, we plant wheat seeds on dry farmland, and in this condition
+# it will take 35 mins per stage, with 7 stages of growth resulting in an
+# upper bound for the maximum amount of time the wheat takes to grow, in seconds.
+MAX_WHEAT_TIME = 35 * 7
 
 
 
@@ -192,7 +197,8 @@ def wheatFullyGrown(losDict):
 	if losDict[u"type"] != BLOCK_WHEAT:
 		return False
 
-	return losDict.get(WHEAT_PROP_AGE, -1) == WHEAT_FULLY_GROWN_AGE
+	return losDict.get(CROP_PROP_AGE, -1) == CROP_FULLY_GROWN_AGE
+
 
 
 def eprint(*args, **kwargs):

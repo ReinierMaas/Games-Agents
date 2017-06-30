@@ -3,6 +3,8 @@ import heapq
 import time
 import sys
 
+from util import *
+
 """
 Okay, there are three levels of complexity we can choose
 simplest: use boolean state
@@ -21,6 +23,13 @@ complex:  use custom state with user-supplied functions and heuristic
 		  - requires custom functions for each action
 		  - requires complex A* heuristic
 """
+
+
+FOUND_TREE = "foundTree"
+FOUND_GRASS = "foundGrass"
+
+CHOP_WOOD = "chopWood"
+GET_SEEDS = "getSeeds"
 
 
 class Goal:
@@ -92,7 +101,7 @@ class ActionReturn:
 def findTrees(w):
 	ac = w["agentController"]
 	nav = ac.navigator
-	nav.findAndSet("log")
+	nav.findAndSet(BLOCK_WOOD)
 	print "<Agent{}> finding trees! find find...".format(w["id"])
 	return ActionReturn.success
 
@@ -110,34 +119,34 @@ def chopWood(w):
 		print "goap.py:chopWood(w): nav is None"
 		return ActionReturn.failure
 
-	if "chopWood" not in w:
-		w["chopWood"] = False
+	if CHOP_WOOD not in w:
+		w[CHOP_WOOD] = False
 	print "<Agent{}> chopping wood! chop chop...".format(w["id"])
 
-	if not w["chopWood"]:
-		w["chopWood"] = True
-		w["foundTree"] = False
-		destination = nav.findAndSet("log", w["id"], w["filters"])
+	if not w[CHOP_WOOD]:
+		w[CHOP_WOOD] = True
+		w[FOUND_TREE] = False
+		destination = nav.findAndSet(BLOCK_WOOD, w["id"], w["filters"])
 		if destination is None:
 			print "goap.py:chopWood(w):nav.findAndSet(...) destination is None"
 			return ActionReturn.failure
 		w["destination"] = destination
 		return ActionReturn.retry
-	elif not w["foundTree"]:
+	elif not w[FOUND_TREE]:
 		if nav.targetReached:
-			w["foundTree"] = True
+			w[FOUND_TREE] = True
 	else:
 		if w["destination"] is None:
 			print "goap.py:chopWood(w):w[\"destination\"] is None"
 			return ActionReturn.failure
-		if ac.destroyBlock("log", w["destination"].location):
+		if ac.destroyBlock(BLOCK_WOOD, w["destination"].location):
 			return ActionReturn.retry
 		else:
-			w["foundTree"] = False
-			w["chopWood"] = False
+			w[FOUND_TREE] = False
+			w[CHOP_WOOD] = False
 			if w["destination"] is not None:
 				w["destination"].removeFlag(w["id"])
-				w["destination"].removeFlag("log")
+				w["destination"].removeFlag(BLOCK_WOOD)
 				ac.controller.setPitch(-10)
 				w["destination"] = None
 				return ActionReturn.success
@@ -145,6 +154,65 @@ def chopWood(w):
 				print "goap, w[destination] is None"
 				return ActionReturn.failure
 
+	return ActionReturn.success
+
+def getSeeds(w):
+	if w is None:
+		print "goap.py:getSeeds(w): w is None"
+		return ActionReturn.failure
+
+	ac = w["agentController"]
+
+	if ac is None:
+		print "goap.py:getSeeds(w): ac is None"
+		return ActionReturn.failure
+
+	nav = ac.navigator
+
+	if nav is None:
+		print "goap.py:getSeeds(w): nav is None"
+		return ActionReturn.failure
+
+	if GET_SEEDS not in w:
+		w[GET_SEEDS] = False
+
+	print "<Agent{}> Getting seeds! ...".format(w["id"])
+
+	if not w[GET_SEEDS]:
+		w[GET_SEEDS] = True
+		w[FOUND_GRASS] = False
+		destination = nav.findAndSet(BLOCK_TALL_GRASS, w["id"], w["filters"])
+
+		if destination is None:
+			print "goap.py:getSeeds(w):nav.findAndSet(...) destination is None"
+			return ActionReturn.failure
+
+		w["destination"] = destination
+		return ActionReturn.retry
+
+	elif not w[FOUND_GRASS]:
+		if nav.targetReached:
+			w[FOUND_GRASS] = True
+	else:
+		if w["destination"] is None:
+			print "goap.py:getSeeds(w):w[\"destination\"] is None"
+			return ActionReturn.failure
+
+		if ac.destroyBlock(BLOCK_TALL_GRASS, w["destination"].location):
+			return ActionReturn.retry
+		else:
+			w[FOUND_GRASS] = False
+			w[GET_SEEDS] = False
+
+			if w["destination"] is not None:
+				w["destination"].removeFlag(w["id"])
+				w["destination"].removeFlag(BLOCK_TALL_GRASS)
+				ac.controller.setPitch(-10)
+				w["destination"] = None
+				return ActionReturn.success
+			else:
+				print "goap, w[destination] is None"
+				return ActionReturn.failure
 
 	return ActionReturn.success
 
@@ -171,12 +239,21 @@ def craftHoe(w):
 	print "<Agent{}> crafting hoe! hoe hoe...".format(w["id"])
 	return ActionReturn.success
 
+def harvestOrPlantWheat(w):
+	# Use waypoint system to see if theres fully grown wheat available...
+	nav = w["agentController"].navigator
+	nav.findAndSet(BLOCK_WHEAT)
 
-def harvestGrain(w):
-	# TODO: Use waypoint system to see if theres fully grown wheat available...
-	# If not, return failure, otherwise harvest it
-	print "<Agent{}> harvesting grain! oh no! there are is no grain, so I will plant some and check on them later".format(w["id"])
-	return ActionReturn.failure(5)
+	if True:
+		# Need to plant wheat...
+		print "<Agent{}> harvesting Wheat! oh no! there is no Wheat, so I will plant some and check on them later".format(w["id"])
+		return ActionReturn.failure(5)
+	else:
+		# Harvest wheat if enough time has passed...
+		harvastebleNodes = []
+
+		print "<Agent{}> harvesting Wheat! harvest harvest...".format(w["id"])
+		node = nodes[0]
 
 
 def bakeBread(w):
@@ -230,11 +307,12 @@ def plan(startstate, bannedSet):
 	actions = np.array([
 		Action("craftTable", craftTable, {"planks": 4}, {"crafting_table": 1, "planks": -4}),
 		Action("craftPlank", craftPlank, {"logs": 1}, {"planks": 4, "logs": -1}),
-		Action("chopWood", chopWood, {}, {"logs": 1}),
+		Action(CHOP_WOOD, chopWood, {}, {"logs": 1}),
+		Action(GET_SEEDS, getSeeds, {}, {SEEDS: 1}),
 		Action("craftHoe", craftHoe, {"crafting_table": 1, "planks": 2, "sticks": 2}, {"wooden_hoe": 1, "planks": -2, "sticks": -2}),
 		Action("craftSticks", craftSticks, {"planks": 2}, {"sticks": 4, "planks": -1}),
-		Action("harvestGrain", harvestGrain, {"wooden_hoe":1}, {"grain": 1}),
-		Action("bakeBread", bakeBread, {"crafting_table": 1, "grain": 3}, {"bread":1, "grain":-3}),
+		Action("harvestOrPlantWheat", harvestOrPlantWheat, {"wooden_hoe": 1}, {"wheat": 1}),
+		Action("bakeBread", bakeBread, {"crafting_table": 1, "wheat": 3}, {"bread": 1, "wheat": -3}),
 	])
 
 	print "starting goap"

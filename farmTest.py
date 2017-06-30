@@ -13,6 +13,7 @@ import errno
 import numpy as np
 
 from util import *
+from navigation import *
 from agentController import *
 
 
@@ -178,6 +179,9 @@ if __name__ == "__main__":
 
 		# Setup agent handler and first target grass
 		agent = AgentController(agentHost)
+		navGraph = Graph(300, 300, 1)
+		agent.navigator.setNavGraph(navGraph)
+
 		targetPosition = None
 		i = 0
 		plantedSeeds = False
@@ -208,8 +212,10 @@ if __name__ == "__main__":
 
 		# To keep track of whether there is wheat left to be farmed
 		wheatLeft = True
+		currentBlock = None
 		j = 0
-		losProp = {LOS_PROP_NAME: WHEAT_PROP_AGE, LOS_PROP_VALUE: WHEAT_FULLY_GROWN_AGE}
+		losProp = {LOS_PROP_NAME: CROP_PROP_AGE, LOS_PROP_VALUE: CROP_FULLY_GROWN_AGE}
+		startTime = time.time()
 
 		# Mission loop:
 		while worldState.is_mission_running:
@@ -233,23 +239,21 @@ if __name__ == "__main__":
 				# Check if we have planted everything
 				# if not agent.inventoryHandler.hasItemInHotbar(SEEDS):
 				if plantedEverything:
-					print "Planted all the seeds we got, now we wait to harvest wheat..."
 					# print "The wheat we're currently looking at is fully grown: {}".format(
 					# 	wheatFullyGrown(losDict))
 
-					# Harvest it when its fully ripe, use losProp
-					wheatLeft = agent.destroyBlock(BLOCK_WHEAT, grassPositions[j],
-						losProp)
+					# Look for harvestable wheat...
+					cropPosition = grassPositions[j] + np.array([0, 1, 0])
 
-					print "wheatLeft = {}".format(wheatLeft)
-
-					if not wheatLeft:
+					if not agent.harvestCrop(cropPosition, BLOCK_WHEAT):
 						# Try the next position j
 						j += 1
 
-						if j >= len(grassPositions):
-							j = 0
-							print "Died waiting of boredom for what to grow... bye"
+					if j >= len(grassPositions):
+						j = 0
+
+						if time.time() - startTime >= 5 * 60:
+							print "Died waiting of boredom for wheat to grow... bye"
 							agentHost.sendCommand("quit")
 							time.sleep(1.5)
 				else:
@@ -259,7 +263,7 @@ if __name__ == "__main__":
 							targetPosition = grassPositions[i]
 							i += 1
 						else:
-							print "Got all target positions!"
+							print "Planted all the seeds we got, now we wait to harvest wheat..."
 							plantedEverything = True
 
 					plantedSeeds = agent.tileGrassAndPlantSeeds(targetPosition,
