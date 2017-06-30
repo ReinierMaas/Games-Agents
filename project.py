@@ -92,7 +92,7 @@ if __name__ == "__main__":
 	#generate world
 	worldGen.setSeed(55)
 	lakes, lakeLocs, lavaLocs = worldGen.genLakes()
-	grass = worldGen.genGrass()
+	grass, grassLocs = worldGen.genGrass()
 	trees, treelocs = worldGen.genTrees()
 	decs = grass + lakes + trees
 	decorator = worldGen.makeDecorator(decs)
@@ -158,6 +158,7 @@ if __name__ == "__main__":
 	if PRE_EXPLORE:
 		worldGen.bulkFlagRegion(navGraph, lakeLocs, "water", True)
 		worldGen.bulkFlagRegion(navGraph, lavaLocs, "lava", True)
+		worldGen.bulkFlagRegion(navGraph, grassLocs, BLOCK_TALL_GRASS, True)
 		worldGen.bulkFlagLoc(navGraph, treelocs, "log", True)
 
 	startTime = time.time()

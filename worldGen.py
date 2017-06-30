@@ -68,6 +68,7 @@ def genLakes():
 
 def genGrass():
 	grass = []
+	grassLocs=[]
 	for ix in range(-20, 20):
 		for iz in range(-20, 20):
 			rng = random.randint(0,5)
@@ -76,7 +77,8 @@ def genGrass():
 				rng3 = random.randint(3,7)
 				x, z = ix * 5, iz * 5
 				grass.append(makeGrass(x, 7, z, rng2, rng3))
-	return grass
+				grassLocs.append((x, z, rng2, rng3))
+	return grass, grassLocs
 
 def genTrees():
 	trees = []
