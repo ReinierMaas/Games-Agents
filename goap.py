@@ -112,40 +112,55 @@ def chopWood(w):
 	if w is None:
 		print "goap.py:chopWood(w): w is None"
 		return ActionReturn.failure()
+
 	ac = w["agentController"]
+
 	if ac is None:
 		print "goap.py:chopWood(w): ac is None"
 		return ActionReturn.failure()
+
 	nav = ac.navigator
+
 	if nav is None:
 		print "goap.py:chopWood(w): nav is None"
 		return ActionReturn.failure()
 
 	if CHOP_WOOD not in w:
 		w[CHOP_WOOD] = False
+
 	print "<Agent{}> chopping wood! chop chop...".format(w["id"])
 
 	if not w[CHOP_WOOD]:
 		w[CHOP_WOOD] = True
 		w[FOUND_TREE] = False
 		destination = nav.findAndSet(BLOCK_WOOD, w["id"], w["filters"])
+
 		if destination is None:
 			print "goap.py:chopWood(w):nav.findAndSet(...) destination is None"
 			return ActionReturn.failure()
+
 		w["destination"] = destination
 		return ActionReturn.retry
 	elif not w[FOUND_TREE]:
 		if nav.targetReached:
 			w[FOUND_TREE] = True
 	else:
+		tempDestination = w["destination"]
+
 		if w["destination"] is None:
 			print "goap.py:chopWood(w):w[\"destination\"] is None"
-			return ActionReturn.failure()
-		if ac.destroyBlock(BLOCK_WOOD, w["destination"].location):
+			# return ActionReturn.failure()
+		else:
+			tempDestination = tempDestination.location
+
+		print "CHOPPING WOOD!"
+
+		if ac.destroyBlock(BLOCK_WOOD, tempDestination):
 			return ActionReturn.retry
 		else:
 			w[FOUND_TREE] = False
 			w[CHOP_WOOD] = False
+
 			if w["destination"] is not None:
 				w["destination"].removeFlag(w["id"])
 				w["destination"].removeFlag(BLOCK_WOOD)
@@ -196,11 +211,17 @@ def getSeeds(w):
 		if nav.targetReached:
 			w[FOUND_GRASS] = True
 	else:
+		tempDestination = w["destination"]
+
 		if w["destination"] is None:
 			print "goap.py:getSeeds(w):w[\"destination\"] is None"
-			return ActionReturn.failure()
+			# return ActionReturn.failure()
+		else:
+			tempDestination = tempDestination.location
 
-		if ac.destroyBlock(BLOCK_TALL_GRASS, w["destination"].location):
+
+		print "GETTING SEEDS!"
+		if ac.destroyBlock(BLOCK_TALL_GRASS, tempDestination):
 			return ActionReturn.retry
 		else:
 			w[FOUND_GRASS] = False
@@ -372,7 +393,7 @@ def plan(startstate, bannedSet):
 		Action(GET_SEEDS, getSeeds, {}, {SEEDS: 1}),
 		Action("craftHoe", craftHoe, {"crafting_table": 1, "planks": 2, "sticks": 2}, {"wooden_hoe": 1, "planks": -2, "sticks": -2}),
 		Action("craftSticks", craftSticks, {"planks": 2}, {"sticks": 4, "planks": -1}),
-		Action("harvestOrPlantWheat", harvestOrPlantWheat, {"wooden_hoe": 1}, {"wheat": 1}),
+		Action("harvestOrPlantWheat", harvestOrPlantWheat, {"wooden_hoe": 1, SEEDS: 1}, {"wheat": 1, SEEDS: -1}),
 		Action("bakeBread", bakeBread, {"crafting_table": 1, "wheat": 3}, {"bread": 1, "wheat": -3}),
 	])
 
@@ -419,8 +440,8 @@ class Goap:
 			self.plan = plan(self.state, banned)
 		# then perform the action if there is a goal
 		if self.plan != []:
-			print "plan = {}".format(self.plan)
-			print "state = {}".format(self.state)
+			# print "plan = {}".format(self.plan)
+			# print "state = {}".format(self.state)
 
 			action = self.plan[0]
 			result = action.function(self.meta)
