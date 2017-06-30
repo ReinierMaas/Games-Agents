@@ -221,7 +221,6 @@ def getSeeds(w):
 		else:
 			tempDestination = tempDestination.location
 
-
 		print "GETTING SEEDS!"
 		if ac.destroyBlock(BLOCK_TALL_GRASS, tempDestination):
 			return ActionReturn.retry
@@ -304,6 +303,17 @@ def harvestOrPlantWheat(w):
 
 				if not success:
 					# Hopefully planted seeds...
+					w["destination"] = newDestination
+
+					if w["destination"] is not None:
+						w["destination"].setFlag(w["id"])
+						w["destination"].setFlag(BLOCK_TALL_GRASS)
+						ac.controller.setPitch(-10)
+						w["destination"] = None
+						return ActionReturn.success
+					else:
+						print "goap, w[destination] is None"
+						return ActionReturn.failure()
 					pass
 				else:
 					# Continue/Try again later...
