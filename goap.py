@@ -27,9 +27,11 @@ complex:  use custom state with user-supplied functions and heuristic
 
 FOUND_TREE = "foundTree"
 FOUND_GRASS = "foundGrass"
+FOUND_WHEAT = "foundWheat"
 
 CHOP_WOOD = "chopWood"
 GET_SEEDS = "getSeeds"
+GET_WHEAT = "getWheat"
 
 
 class Goal:
@@ -109,15 +111,15 @@ def findTrees(w):
 def chopWood(w):
 	if w is None:
 		print "goap.py:chopWood(w): w is None"
-		return ActionReturn.failure
+		return ActionReturn.failure()
 	ac = w["agentController"]
 	if ac is None:
 		print "goap.py:chopWood(w): ac is None"
-		return ActionReturn.failure
+		return ActionReturn.failure()
 	nav = ac.navigator
 	if nav is None:
 		print "goap.py:chopWood(w): nav is None"
-		return ActionReturn.failure
+		return ActionReturn.failure()
 
 	if CHOP_WOOD not in w:
 		w[CHOP_WOOD] = False
@@ -129,7 +131,7 @@ def chopWood(w):
 		destination = nav.findAndSet(BLOCK_WOOD, w["id"], w["filters"])
 		if destination is None:
 			print "goap.py:chopWood(w):nav.findAndSet(...) destination is None"
-			return ActionReturn.failure
+			return ActionReturn.failure()
 		w["destination"] = destination
 		return ActionReturn.retry
 	elif not w[FOUND_TREE]:
@@ -138,7 +140,7 @@ def chopWood(w):
 	else:
 		if w["destination"] is None:
 			print "goap.py:chopWood(w):w[\"destination\"] is None"
-			return ActionReturn.failure
+			return ActionReturn.failure()
 		if ac.destroyBlock(BLOCK_WOOD, w["destination"].location):
 			return ActionReturn.retry
 		else:
@@ -152,26 +154,26 @@ def chopWood(w):
 				return ActionReturn.success
 			else:
 				print "goap, w[destination] is None"
-				return ActionReturn.failure
+				return ActionReturn.failure()
 
 	return ActionReturn.success
 
 def getSeeds(w):
 	if w is None:
 		print "goap.py:getSeeds(w): w is None"
-		return ActionReturn.failure
+		return ActionReturn.failure()
 
 	ac = w["agentController"]
 
 	if ac is None:
 		print "goap.py:getSeeds(w): ac is None"
-		return ActionReturn.failure
+		return ActionReturn.failure()
 
 	nav = ac.navigator
 
 	if nav is None:
 		print "goap.py:getSeeds(w): nav is None"
-		return ActionReturn.failure
+		return ActionReturn.failure()
 
 	if GET_SEEDS not in w:
 		w[GET_SEEDS] = False
@@ -185,7 +187,7 @@ def getSeeds(w):
 
 		if destination is None:
 			print "goap.py:getSeeds(w):nav.findAndSet(...) destination is None"
-			return ActionReturn.failure
+			return ActionReturn.failure()
 
 		w["destination"] = destination
 		return ActionReturn.retry
@@ -196,7 +198,7 @@ def getSeeds(w):
 	else:
 		if w["destination"] is None:
 			print "goap.py:getSeeds(w):w[\"destination\"] is None"
-			return ActionReturn.failure
+			return ActionReturn.failure()
 
 		if ac.destroyBlock(BLOCK_TALL_GRASS, w["destination"].location):
 			return ActionReturn.retry
@@ -212,7 +214,7 @@ def getSeeds(w):
 				return ActionReturn.success
 			else:
 				print "goap, w[destination] is None"
-				return ActionReturn.failure
+				return ActionReturn.failure()
 
 	return ActionReturn.success
 
@@ -240,20 +242,79 @@ def craftHoe(w):
 	return ActionReturn.success
 
 def harvestOrPlantWheat(w):
-	# Use waypoint system to see if theres fully grown wheat available...
-	nav = w["agentController"].navigator
-	nav.findAndSet(BLOCK_WHEAT)
+	if w is None:
+		print "goap.py:harvestOrPlantWheat(w): w is None"
+		return ActionReturn.failure()
+	ac = w["agentController"]
+	if ac is None:
+		print "goap.py:harvestOrPlantWheat(w): ac is None"
+		return ActionReturn.failure()
+	nav = ac.navigator
+	if nav is None:
+		print "goap.py:harvestOrPlantWheat(w): nav is None"
+		return ActionReturn.failure()
 
-	if True:
-		# Need to plant wheat...
-		print "<Agent{}> harvesting Wheat! oh no! there is no Wheat, so I will plant some and check on them later".format(w["id"])
-		return ActionReturn.failure(5)
+	if GET_WHEAT not in w:
+		w[GET_WHEAT] = False
+	print "<Agent{}> getting wheat! wheat wheat...".format(w["id"])
+
+	if not w[GET_WHEAT]:
+		w[GET_WHEAT] = True
+		w[FOUND_WHEAT] = False
+		destination = nav.findAndSet(BLOCK_WHEAT, w["id"], w["filters"])
+
+		if destination is None:
+			# No wheat available... plant some... look for grass first
+			newDestination = nav.findAndSet(BLOCK_GRASS, w["id"], w["filters"])
+
+			if newDestination is None:
+				print "Well I give up, no wheat and no grass available??? :("
+				print "returning shit: {}".format(ActionReturn.failure())
+				return ActionReturn.failure()
+
+			print "planting seeds at first grass position..."
+
+			if nav.targetReached:
+				hoeSlot = ac.inventoryHandler.getHotbarSlot("wooden_hoe")
+				seedsSlot = ac.inventoryHandler.getHotbarSlot(SEEDS)
+				success = ac.tileGrassAndPlantSeeds(newDestination.location, hoeSlot, seedsSlot)
+
+				if not success:
+					# Hopefully planted seeds...
+					pass
+				else:
+					# Continue/Try again later...
+					pass
+
+			return ActionReturn.retry
+
+		w["destination"] = destination
+		return ActionReturn.retry
+	elif not w[FOUND_WHEAT]:
+		if nav.targetReached:
+			w[FOUND_WHEAT] = True
 	else:
-		# Harvest wheat if enough time has passed...
-		harvastebleNodes = []
+		if w["destination"] is None:
+			print "goap.py:harvestOrPlantWheat(w):w[\"destination\"] is None"
+			return ActionReturn.failure()
+		if ac.harvestCrop(w["destination"].location, BLOCK_WHEAT):
+			return ActionReturn.retry
+		else:
+			w[FOUND_WHEAT] = False
+			w[GET_WHEAT] = False
+			if w["destination"] is not None:
+				w["destination"].removeFlag(w["id"])
+				w["destination"].removeFlag(BLOCK_WHEAT)
+				ac.controller.setPitch(-10)
+				w["destination"] = None
+				return ActionReturn.success
+			else:
+				print "goap, w[destination] is None"
+				return ActionReturn.failure()
 
-		print "<Agent{}> harvesting Wheat! harvest harvest...".format(w["id"])
-		node = nodes[0]
+	return ActionReturn.success
+	print "<Agent{}> harvesting Wheat! oh no! there is no Wheat, so I will plant some and check on them later".format(w["id"])
+
 
 
 def bakeBread(w):
@@ -264,7 +325,7 @@ def bakeBread(w):
 		w["agentController"].craft("bread")
 		return ActionReturn.success
 	else:
-		return ActionReturn.false
+		return ActionReturn.failure()
 
 
 
@@ -370,7 +431,7 @@ class Goap:
 			elif result > 0:
 				# invalidate current plan and add current action to timeout
 				self.plan = []
-				self.timeouts.append(ActionTimeout(action, time.time()+result))
+				self.timeouts.append(ActionTimeout(action, time.time() + result))
 		else:
 			print "idling..."
 

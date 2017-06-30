@@ -105,7 +105,7 @@ class InventoryHotbar(object):
 
 	def hasItem(self, itemName):
 		""" Returns True/False if the given item is in the hotbar or inventory. """
-		return hasItemInHotbar(itemName) or hasItemInInventory(itemName)
+		return self.hasItemInHotbar(itemName) or self.hasItemInInventory(itemName)
 
 
 
@@ -121,7 +121,7 @@ class InventoryHotbar(object):
 
 	def getItemAmount(self, itemName):
 		""" Returns the amount of items in hotbar and inventory. """
-		return getItemHotbarAmount(itemName) + getItemInventoryAmount(itemName)
+		return self.getItemHotbarAmount(itemName) + self.getItemInventoryAmount(itemName)
 
 
 

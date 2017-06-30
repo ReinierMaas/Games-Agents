@@ -35,6 +35,7 @@ class AgentController(object):
 		self.navigator = nav.Navigator(self.controller)
 		self.inventoryHandler = InventoryHotbar()
 		self.goap = None
+		self.wheatPositions = []
 
 
 	def updateObservation(self, observation):

@@ -40,7 +40,7 @@ def getAgentHost():
 
 	return agentHost
 
-INTERESTING_BLOCKS = ["log", "grass"]
+INTERESTING_BLOCKS = [BLOCK_WOOD, BLOCK_GRASS, BLOCK_WHEAT]
 def getInterestingBlocks(visionHandler):
 	blocks = []
 
@@ -127,6 +127,21 @@ if __name__ == "__main__":
 
 	print "\nMission running"
 	time.sleep(0.5)		# To allow observations and rendering to become ready
+
+	# Plant grass in a 4x4 area
+	relGrassPositions = [
+		np.array([0, -1, 0]), np.array([0, -1, 1]),
+		np.array([0, -1, 2]), np.array([0, -1, 3]),
+
+		np.array([1, -1, 0]), np.array([1, -1, 1]),
+		np.array([1, -1, 2]), np.array([1, -1, 3]),
+
+		np.array([2, -1, 0]), np.array([2, -1, 1]),
+		np.array([2, -1, 2]), np.array([2, -1, 3]),
+
+		np.array([3, -1, 0]), np.array([3, -1, 1]),
+		np.array([3, -1, 2]), np.array([3, -1, 3]),
+	]
 
 
 	print "CUBE_SIZE{}".format(CUBE_SIZE)
